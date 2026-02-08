@@ -248,6 +248,73 @@ class IngredientController
         echo json_encode($results);
     }
 
+    public function createFromApi(): void
+    {
+        Auth::requireRole(['admin', 'editor']);
+        header('Content-Type: application/json');
+        $token = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? null;
+        if (!Csrf::validate($token)) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Invalid CSRF token.']);
+            return;
+        }
+
+        $payload = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($payload)) {
+            http_response_code(422);
+            echo json_encode(['error' => 'Invalid payload.']);
+            return;
+        }
+
+        $orgId = Auth::currentOrgId();
+        $actor = Auth::currentUser();
+        $data = [
+            'name' => trim((string) ($payload['name'] ?? '')),
+            'uom_set_id' => isset($payload['uom_set_id']) ? (int) $payload['uom_set_id'] : 0,
+            'notes' => trim((string) ($payload['notes'] ?? '')),
+            'active' => isset($payload['active']) ? (int) $payload['active'] : 1,
+        ];
+
+        $errors = $this->validatePayload($orgId, $data);
+        if (!empty($errors)) {
+            http_response_code(422);
+            echo json_encode(['error' => implode(' ', $errors)]);
+            return;
+        }
+
+        $ingredient = Ingredient::create($this->pdo, $orgId, $actor['id'] ?? 0, $data);
+        echo json_encode([
+            'id' => (int) ($ingredient['id'] ?? 0),
+            'name' => $ingredient['name'] ?? $data['name'],
+            'uom_set_id' => (int) ($ingredient['uom_set_id'] ?? $data['uom_set_id']),
+        ]);
+    }
+
+    public function listUoms(): void
+    {
+        Auth::requireLogin();
+        header('Content-Type: application/json');
+        $orgId = Auth::currentOrgId();
+        $uomSetId = isset($_GET['uom_set_id']) ? (int) $_GET['uom_set_id'] : 0;
+
+        if ($uomSetId <= 0) {
+            http_response_code(422);
+            echo json_encode(['error' => 'uom_set_id is required.']);
+            return;
+        }
+
+        $uoms = Ingredient::listUomsBySet($this->pdo, $orgId, $uomSetId);
+        echo json_encode(array_map(function (array $uom): array {
+            return [
+                'id' => (int) $uom['id'],
+                'name' => $uom['name'],
+                'symbol' => $uom['symbol'],
+                'factor_to_base' => (float) $uom['factor_to_base'],
+                'is_base' => (int) $uom['is_base'] === 1,
+            ];
+        }, $uoms));
+    }
+
     private function payloadFromRequest(): array
     {
         return [

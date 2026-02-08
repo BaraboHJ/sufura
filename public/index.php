@@ -40,6 +40,7 @@ use App\Controllers\HomeController;
 use App\Controllers\AuthController;
 use App\Controllers\AdminUserController;
 use App\Controllers\IngredientController;
+use App\Controllers\DishController;
 
 $pdo = DB::conn($config);
 $router = new Router();
@@ -48,6 +49,7 @@ $homeController = new HomeController();
 $authController = new AuthController($pdo);
 $adminUserController = new AdminUserController($pdo);
 $ingredientController = new IngredientController($pdo);
+$dishController = new DishController($pdo);
 
 $router->get('/', [$homeController, 'index']);
 $router->get('/login', [$authController, 'showLogin']);
@@ -65,6 +67,19 @@ $router->get('/ingredients/:id/edit', [$ingredientController, 'editForm']);
 $router->post('/ingredients/:id/update', [$ingredientController, 'update']);
 $router->post('/api/ingredients/:id/costs', [$ingredientController, 'addCost']);
 $router->get('/api/ingredients/search', [$ingredientController, 'search']);
+$router->post('/api/ingredients/create', [$ingredientController, 'createFromApi']);
+$router->get('/api/uoms', [$ingredientController, 'listUoms']);
+$router->get('/dishes', [$dishController, 'index']);
+$router->get('/dishes/new', [$dishController, 'createForm']);
+$router->post('/dishes/create', [$dishController, 'create']);
+$router->get('/dishes/:id', [$dishController, 'show']);
+$router->get('/dishes/:id/edit', [$dishController, 'editForm']);
+$router->post('/dishes/:id/update', [$dishController, 'update']);
+$router->post('/api/dishes/:id/lines/add', [$dishController, 'addLine']);
+$router->post('/api/dish-lines/:id/update', [$dishController, 'updateLine']);
+$router->post('/api/dish-lines/:id/delete', [$dishController, 'deleteLine']);
+$router->get('/api/dishes/:id/cost_summary', [$dishController, 'costSummary']);
+$router->get('/api/dishes/:id/cost_breakdown', [$dishController, 'costBreakdown']);
 
 $route = $_GET['r'] ?? null;
 $path = $route ? '/' . ltrim($route, '/') : parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
