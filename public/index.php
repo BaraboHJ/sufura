@@ -39,6 +39,7 @@ use App\Core\Router;
 use App\Controllers\HomeController;
 use App\Controllers\AuthController;
 use App\Controllers\AdminUserController;
+use App\Controllers\IngredientController;
 
 $pdo = DB::conn($config);
 $router = new Router();
@@ -46,6 +47,7 @@ $router = new Router();
 $homeController = new HomeController();
 $authController = new AuthController($pdo);
 $adminUserController = new AdminUserController($pdo);
+$ingredientController = new IngredientController($pdo);
 
 $router->get('/', [$homeController, 'index']);
 $router->get('/login', [$authController, 'showLogin']);
@@ -55,6 +57,14 @@ $router->get('/admin/users', [$adminUserController, 'index']);
 $router->get('/admin/users/new', [$adminUserController, 'createForm']);
 $router->post('/admin/users/create', [$adminUserController, 'create']);
 $router->post('/admin/users/:id/update', [$adminUserController, 'update']);
+$router->get('/ingredients', [$ingredientController, 'index']);
+$router->get('/ingredients/new', [$ingredientController, 'createForm']);
+$router->post('/ingredients/create', [$ingredientController, 'create']);
+$router->get('/ingredients/:id', [$ingredientController, 'show']);
+$router->get('/ingredients/:id/edit', [$ingredientController, 'editForm']);
+$router->post('/ingredients/:id/update', [$ingredientController, 'update']);
+$router->post('/api/ingredients/:id/costs', [$ingredientController, 'addCost']);
+$router->get('/api/ingredients/search', [$ingredientController, 'search']);
 
 $route = $_GET['r'] ?? null;
 $path = $route ? '/' . ltrim($route, '/') : parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
