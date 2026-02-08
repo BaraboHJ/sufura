@@ -25,8 +25,9 @@ $errors = $summary['errors'] ?? [];
                 <div class="mb-3">
                     <div class="fw-semibold">Upload summary</div>
                     <div class="text-muted small">File: <?= htmlspecialchars($summary['file_name'] ?? 'upload.csv', ENT_QUOTES) ?></div>
-                    <div class="d-flex gap-3 mt-2">
+                    <div class="d-flex flex-wrap gap-3 mt-2">
                         <span class="badge bg-success">Created: <?= (int) ($summary['created'] ?? 0) ?></span>
+                        <span class="badge bg-info">Lines: <?= (int) ($summary['created_lines'] ?? 0) ?></span>
                         <span class="badge bg-secondary">Skipped: <?= (int) ($summary['skipped'] ?? 0) ?></span>
                         <span class="badge bg-danger">Errors: <?= count($errors) ?></span>
                     </div>
@@ -57,13 +58,19 @@ $errors = $summary['errors'] ?? [];
                 <div class="fw-semibold">Required columns</div>
                 <ul class="mb-0 text-muted small">
                     <li><code>name</code></li>
+                    <li><code>ingredient_name</code></li>
+                    <li><code>ingredient_quantity</code></li>
                 </ul>
                 <div class="fw-semibold mt-3">Optional columns</div>
                 <ul class="mb-0 text-muted small">
                     <li><code>description</code></li>
                     <li><code>yield_servings</code> (defaults to 1)</li>
                     <li><code>active</code> (1/0, yes/no, active/inactive)</li>
+                    <li><code>ingredient_uom</code> (defaults to ingredient base UoM)</li>
                 </ul>
+                <div class="text-muted small mt-2">
+                    To add multiple ingredients for one dish, include multiple rows with the same dish name.
+                </div>
             </div>
         </div>
     </div>

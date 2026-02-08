@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Core\Auth;
 use App\Core\Csrf;
 use App\Models\Dish;
+use App\Models\DishLine;
 use App\Models\Ingredient;
 use PDO;
 
@@ -190,8 +191,17 @@ class BulkImportController
         header('Content-Type: text/csv');
         header('Content-Disposition: attachment; filename="dishes_template.csv"');
         $output = fopen('php://output', 'w');
-        fputcsv($output, ['name', 'description', 'yield_servings', 'active']);
-        fputcsv($output, ['Example Dish', 'Optional description', '10', '1']);
+        fputcsv($output, [
+            'name',
+            'description',
+            'yield_servings',
+            'active',
+            'ingredient_name',
+            'ingredient_quantity',
+            'ingredient_uom',
+        ]);
+        fputcsv($output, ['Example Dish', 'Optional description', '10', '1', 'Flour', '2.5', 'kg']);
+        fputcsv($output, ['Example Dish', '', '', '', 'Salt', '0.02', 'kg']);
         fclose($output);
     }
 
@@ -242,9 +252,20 @@ class BulkImportController
         }
 
         $columnMap = $this->mapCsvHeader($header);
+        $columnMap = $this->applyColumnAliases($columnMap, [
+            'ingredient_name' => ['ingredient'],
+            'ingredient_quantity' => ['ingredient_qty', 'qty', 'quantity'],
+            'ingredient_uom' => ['ingredient_unit', 'ingredient_units', 'unit', 'uom'],
+        ]);
         $errors = [];
         if (!isset($columnMap['name'])) {
             $errors[] = 'Missing required column: name';
+        }
+        if (!isset($columnMap['ingredient_name'])) {
+            $errors[] = 'Missing required column: ingredient_name';
+        }
+        if (!isset($columnMap['ingredient_quantity'])) {
+            $errors[] = 'Missing required column: ingredient_quantity';
         }
 
         if (!empty($errors)) {
@@ -259,8 +280,13 @@ class BulkImportController
         }
 
         $created = 0;
+        $createdLines = 0;
         $skipped = 0;
         $rowNum = 1;
+        $dishesByName = [];
+        $dishLineCounts = [];
+        $ingredientMap = $this->ingredientMap($orgId);
+        $uomMap = $this->uomMapBySet($orgId);
 
         while (($data = fgetcsv($handle)) !== false) {
             $rowNum++;
@@ -272,6 +298,9 @@ class BulkImportController
             $description = trim((string) ($this->getColumnValue($data, $columnMap, 'description') ?? ''));
             $yieldRaw = $this->getColumnValue($data, $columnMap, 'yield_servings');
             $activeRaw = $this->getColumnValue($data, $columnMap, 'active');
+            $ingredientNameRaw = trim((string) ($data[$columnMap['ingredient_name']] ?? ''));
+            $ingredientQuantityRaw = $data[$columnMap['ingredient_quantity']] ?? null;
+            $ingredientUomRaw = trim((string) ($this->getColumnValue($data, $columnMap, 'ingredient_uom') ?? ''));
 
             if ($name === '') {
                 $errors[] = "Row {$rowNum}: Name is required.";
@@ -279,28 +308,75 @@ class BulkImportController
                 continue;
             }
 
-            $yieldServings = $this->parsePositiveInt($yieldRaw);
-            if ($yieldServings === null) {
-                $errors[] = "Row {$rowNum}: Yield servings must be a positive number.";
+            if ($ingredientNameRaw === '') {
+                $errors[] = "Row {$rowNum}: Ingredient name is required.";
                 $skipped++;
                 continue;
             }
 
-            $active = $this->parseBoolean($activeRaw, true) ? 1 : 0;
+            $ingredient = $ingredientMap[$this->normalizeName($ingredientNameRaw)] ?? null;
+            if (!$ingredient) {
+                $errors[] = "Row {$rowNum}: Ingredient \"{$ingredientNameRaw}\" not found.";
+                $skipped++;
+                continue;
+            }
 
-            Dish::create($this->pdo, $orgId, $actor['id'] ?? 0, [
-                'name' => $name,
-                'description' => $description,
-                'yield_servings' => $yieldServings,
-                'active' => $active,
+            $ingredientQuantity = $this->parseDecimal($ingredientQuantityRaw);
+            if ($ingredientQuantity === null || $ingredientQuantity <= 0) {
+                $errors[] = "Row {$rowNum}: Ingredient quantity must be a positive number.";
+                $skipped++;
+                continue;
+            }
+
+            $normalizedDishName = $this->normalizeName($name);
+            if (!isset($dishesByName[$normalizedDishName])) {
+                $yieldServings = $this->parsePositiveInt($yieldRaw);
+                if ($yieldServings === null) {
+                    $errors[] = "Row {$rowNum}: Yield servings must be a positive number.";
+                    $skipped++;
+                    continue;
+                }
+
+                $active = $this->parseBoolean($activeRaw, true) ? 1 : 0;
+                $dish = Dish::create($this->pdo, $orgId, $actor['id'] ?? 0, [
+                    'name' => $name,
+                    'description' => $description,
+                    'yield_servings' => $yieldServings,
+                    'active' => $active,
+                ]);
+                $dishId = (int) ($dish['id'] ?? 0);
+                $dishesByName[$normalizedDishName] = $dishId;
+                $dishLineCounts[$dishId] = 0;
+                $created++;
+            }
+
+            $dishId = $dishesByName[$normalizedDishName];
+            $uomId = $ingredient['base_uom_id'];
+            if ($ingredientUomRaw !== '') {
+                $uom = $this->findUomBySymbol($uomMap, (int) $ingredient['uom_set_id'], $ingredientUomRaw);
+                if (!$uom) {
+                    $errors[] = "Row {$rowNum}: UoM \"{$ingredientUomRaw}\" not found for ingredient \"{$ingredientNameRaw}\".";
+                    $skipped++;
+                    continue;
+                }
+                $uomId = (int) $uom['id'];
+            }
+
+            $dishLineCounts[$dishId] = ($dishLineCounts[$dishId] ?? 0) + 1;
+            DishLine::create($this->pdo, $orgId, $actor['id'] ?? 0, $dishId, [
+                'ingredient_id' => (int) $ingredient['id'],
+                'quantity' => $ingredientQuantity,
+                'uom_id' => $uomId,
+                'sort_order' => $dishLineCounts[$dishId],
             ]);
-            $created++;
+            $createdLines++;
         }
 
         fclose($handle);
 
         $_SESSION['form_summary'] = [
             'created' => $created,
+            'created_lines' => $createdLines,
             'skipped' => $skipped,
             'errors' => $errors,
             'file_name' => $file['name'] ?? 'upload.csv',
@@ -348,6 +424,23 @@ class BulkImportController
         return strtolower(trim($value));
     }
 
+    private function applyColumnAliases(array $columnMap, array $aliases): array
+    {
+        foreach ($aliases as $target => $options) {
+            if (isset($columnMap[$target])) {
+                continue;
+            }
+            foreach ($options as $alias) {
+                if (isset($columnMap[$alias])) {
+                    $columnMap[$target] = $columnMap[$alias];
+                    break;
+                }
+            }
+        }
+
+        return $columnMap;
+    }
+
     private function rowIsEmpty(array $row): bool
     {
         foreach ($row as $cell) {
@@ -356,6 +449,68 @@ class BulkImportController
             }
         }
         return true;
+    }
+
+    private function ingredientMap(int $orgId): array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT i.id,
+                    i.name,
+                    i.uom_set_id,
+                    base_uom.id AS base_uom_id
+             FROM ingredients i
+             JOIN uoms base_uom ON base_uom.uom_set_id = i.uom_set_id
+                 AND base_uom.org_id = i.org_id
+                 AND base_uom.is_base = 1
+             WHERE i.org_id = :org_id'
+        );
+        $stmt->execute(['org_id' => $orgId]);
+        $rows = $stmt->fetchAll();
+        $map = [];
+        foreach ($rows as $row) {
+            $map[$this->normalizeName($row['name'])] = [
+                'id' => (int) $row['id'],
+                'uom_set_id' => (int) $row['uom_set_id'],
+                'base_uom_id' => (int) $row['base_uom_id'],
+            ];
+        }
+        return $map;
+    }
+
+    private function uomMapBySet(int $orgId): array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT id, uom_set_id, symbol
+             FROM uoms
+             WHERE org_id = :org_id'
+        );
+        $stmt->execute(['org_id' => $orgId]);
+        $rows = $stmt->fetchAll();
+        $map = [];
+        foreach ($rows as $row) {
+            $setId = (int) $row['uom_set_id'];
+            $symbolKey = strtolower(trim((string) $row['symbol']));
+            $map[$setId][$symbolKey] = $row;
+        }
+        return $map;
+    }
+
+    private function findUomBySymbol(array $map, int $uomSetId, string $symbol): ?array
+    {
+        $key = strtolower(trim($symbol));
+        return $map[$uomSetId][$key] ?? null;
+    }
+
+    private function parseDecimal($value): ?float
+    {
+        if ($value === null) {
+            return null;
+        }
+        $value = trim((string) $value);
+        if ($value === '' || !preg_match('/^-?\d+(\.\d{1,6})?$/', $value)) {
+            return null;
+        }
+        return (float) $value;
     }
 
     private function parseBoolean($value, bool $default): bool
