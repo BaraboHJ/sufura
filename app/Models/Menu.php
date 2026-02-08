@@ -9,11 +9,24 @@ class Menu
     public static function create(PDO $pdo, int $orgId, int $actorUserId, array $payload): array
     {
         $stmt = $pdo->prepare(
-            'INSERT INTO menus (org_id, name, servings, cost_mode, created_at) VALUES (:org_id, :name, :servings, :cost_mode, NOW())'
+            'INSERT INTO menus
+                (org_id, name, menu_type, price_min_minor, price_max_minor, currency, price_label_suffix, min_pax,
+                 default_waste_pct, show_descriptions, servings, cost_mode, created_at)
+             VALUES
+                (:org_id, :name, :menu_type, :price_min_minor, :price_max_minor, :currency, :price_label_suffix, :min_pax,
+                 :default_waste_pct, :show_descriptions, :servings, :cost_mode, NOW())'
         );
         $stmt->execute([
             'org_id' => $orgId,
             'name' => $payload['name'],
+            'menu_type' => $payload['menu_type'] ?? 'package',
+            'price_min_minor' => $payload['price_min_minor'],
+            'price_max_minor' => $payload['price_max_minor'],
+            'currency' => $payload['currency'] ?? 'USD',
+            'price_label_suffix' => $payload['price_label_suffix'],
+            'min_pax' => $payload['min_pax'],
+            'default_waste_pct' => $payload['default_waste_pct'] ?? 0,
+            'show_descriptions' => $payload['show_descriptions'] ?? 1,
             'servings' => $payload['servings'] ?? 1,
             'cost_mode' => $payload['cost_mode'] ?? 'live',
         ]);
@@ -29,10 +42,30 @@ class Menu
     {
         $before = self::findById($pdo, $orgId, $id);
         $stmt = $pdo->prepare(
-            'UPDATE menus SET name = :name, servings = :servings, updated_at = NOW() WHERE org_id = :org_id AND id = :id'
+            'UPDATE menus
+             SET name = :name,
+                 menu_type = :menu_type,
+                 price_min_minor = :price_min_minor,
+                 price_max_minor = :price_max_minor,
+                 currency = :currency,
+                 price_label_suffix = :price_label_suffix,
+                 min_pax = :min_pax,
+                 default_waste_pct = :default_waste_pct,
+                 show_descriptions = :show_descriptions,
+                 servings = :servings,
+                 updated_at = NOW()
+             WHERE org_id = :org_id AND id = :id'
         );
         $stmt->execute([
             'name' => $payload['name'],
+            'menu_type' => $payload['menu_type'] ?? 'package',
+            'price_min_minor' => $payload['price_min_minor'],
+            'price_max_minor' => $payload['price_max_minor'],
+            'currency' => $payload['currency'] ?? 'USD',
+            'price_label_suffix' => $payload['price_label_suffix'],
+            'min_pax' => $payload['min_pax'],
+            'default_waste_pct' => $payload['default_waste_pct'] ?? 0,
+            'show_descriptions' => $payload['show_descriptions'] ?? 1,
             'servings' => $payload['servings'] ?? 1,
             'org_id' => $orgId,
             'id' => $id,
@@ -84,11 +117,25 @@ class Menu
     public static function findById(PDO $pdo, int $orgId, int $id): ?array
     {
         $stmt = $pdo->prepare(
-            'SELECT id, org_id, name, servings, cost_mode, locked_at, locked_by_user_id, created_at, updated_at
+            'SELECT id, org_id, name, menu_type, price_min_minor, price_max_minor, currency, price_label_suffix, min_pax,
+                    default_waste_pct, show_descriptions, servings, cost_mode, locked_at, locked_by_user_id, created_at, updated_at
              FROM menus WHERE org_id = :org_id AND id = :id'
         );
         $stmt->execute(['org_id' => $orgId, 'id' => $id]);
         $row = $stmt->fetch();
         return $row ?: null;
+    }
+
+    public static function listByOrg(PDO $pdo, int $orgId): array
+    {
+        $stmt = $pdo->prepare(
+            'SELECT id, name, menu_type, price_min_minor, price_max_minor, currency, price_label_suffix, min_pax,
+                    default_waste_pct, show_descriptions, cost_mode, locked_at, locked_by_user_id, created_at, updated_at
+             FROM menus
+             WHERE org_id = :org_id
+             ORDER BY created_at DESC, id DESC'
+        );
+        $stmt->execute(['org_id' => $orgId]);
+        return $stmt->fetchAll();
     }
 }
