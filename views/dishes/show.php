@@ -1,4 +1,7 @@
 <?php
+use App\Core\Auth;
+use App\Core\Csrf;
+
 function format_money(?int $minor, string $currency): string
 {
     if ($minor === null) {
@@ -24,6 +27,7 @@ $statusLabels = [
 $status = $summary['status'] ?? 'incomplete_missing_ingredient_cost';
 $statusConfig = $statusLabels[$status] ?? $statusLabels['incomplete_missing_ingredient_cost'];
 $knownCount = (int) ($summary['lines_count'] ?? 0) - (int) ($summary['unknown_cost_lines_count'] ?? 0);
+$user = Auth::user();
 ?>
 <div class="d-flex justify-content-between align-items-start mb-4">
     <div>
@@ -34,6 +38,12 @@ $knownCount = (int) ($summary['lines_count'] ?? 0) - (int) ($summary['unknown_co
         <?php endif; ?>
     </div>
     <div class="d-flex gap-2">
+        <?php if ($user && ($user['role'] ?? '') === 'admin'): ?>
+            <form method="post" action="/dishes/<?= (int) $dish['id'] ?>/delete" onsubmit="return confirm('Delete this dish? This cannot be undone.');">
+                <?= Csrf::input() ?>
+                <button class="btn btn-outline-danger" type="submit">Delete</button>
+            </form>
+        <?php endif; ?>
         <a class="btn btn-outline-secondary" href="/dishes/<?= (int) $dish['id'] ?>/edit">Edit</a>
         <a class="btn btn-outline-secondary" href="/dishes">Back</a>
     </div>

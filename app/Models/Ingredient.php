@@ -241,4 +241,41 @@ class Ingredient
         $stmt->execute($params);
         return (bool) $stmt->fetchColumn();
     }
+
+    public static function delete(PDO $pdo, int $orgId, int $actorUserId, int $id): void
+    {
+        $before = self::findById($pdo, $orgId, $id);
+        $stmt = $pdo->prepare('DELETE FROM ingredient_costs WHERE org_id = :org_id AND ingredient_id = :id');
+        $stmt->execute(['org_id' => $orgId, 'id' => $id]);
+        $stmt = $pdo->prepare('DELETE FROM ingredients WHERE org_id = :org_id AND id = :id');
+        $stmt->execute(['org_id' => $orgId, 'id' => $id]);
+        Audit::log($pdo, $orgId, $actorUserId, 'ingredient', $id, 'delete', $before, null);
+    }
+
+    public static function hasDishLines(PDO $pdo, int $orgId, int $id): bool
+    {
+        $stmt = $pdo->prepare(
+            'SELECT 1 FROM dish_lines WHERE org_id = :org_id AND ingredient_id = :id LIMIT 1'
+        );
+        $stmt->execute(['org_id' => $orgId, 'id' => $id]);
+        return (bool) $stmt->fetchColumn();
+    }
+
+    public static function hasMenuSnapshots(PDO $pdo, int $orgId, int $id): bool
+    {
+        $stmt = $pdo->prepare(
+            'SELECT 1 FROM menu_ingredient_cost_snapshots WHERE org_id = :org_id AND ingredient_id = :id LIMIT 1'
+        );
+        $stmt->execute(['org_id' => $orgId, 'id' => $id]);
+        return (bool) $stmt->fetchColumn();
+    }
+
+    public static function hasCostImportRows(PDO $pdo, int $orgId, int $id): bool
+    {
+        $stmt = $pdo->prepare(
+            'SELECT 1 FROM cost_import_rows WHERE org_id = :org_id AND matched_ingredient_id = :id LIMIT 1'
+        );
+        $stmt->execute(['org_id' => $orgId, 'id' => $id]);
+        return (bool) $stmt->fetchColumn();
+    }
 }

@@ -74,6 +74,7 @@ $router->get('/ingredients/template', [$bulkImportController, 'ingredientTemplat
 $router->get('/ingredients/:id', [$ingredientController, 'show']);
 $router->get('/ingredients/:id/edit', [$ingredientController, 'editForm']);
 $router->post('/ingredients/:id/update', [$ingredientController, 'update']);
+$router->post('/ingredients/:id/delete', [$ingredientController, 'delete']);
 $router->post('/api/ingredients/:id/costs', [$ingredientController, 'addCost']);
 $router->get('/api/ingredients/search', [$ingredientController, 'search']);
 $router->post('/api/ingredients/create', [$ingredientController, 'createFromApi']);
@@ -87,6 +88,7 @@ $router->get('/dishes/template', [$bulkImportController, 'dishTemplate']);
 $router->get('/dishes/:id', [$dishController, 'show']);
 $router->get('/dishes/:id/edit', [$dishController, 'editForm']);
 $router->post('/dishes/:id/update', [$dishController, 'update']);
+$router->post('/dishes/:id/delete', [$dishController, 'delete']);
 $router->post('/api/dishes/:id/lines/add', [$dishController, 'addLine']);
 $router->post('/api/dish-lines/:id/update', [$dishController, 'updateLine']);
 $router->post('/api/dish-lines/:id/delete', [$dishController, 'deleteLine']);

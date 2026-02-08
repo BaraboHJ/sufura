@@ -77,4 +77,30 @@ class Dish
         $stmt->execute(['org_id' => $orgId]);
         return $stmt->fetchAll();
     }
+
+    public static function delete(PDO $pdo, int $orgId, int $actorUserId, int $id): void
+    {
+        $before = self::findById($pdo, $orgId, $id);
+        $stmt = $pdo->prepare('DELETE FROM dishes WHERE org_id = :org_id AND id = :id');
+        $stmt->execute(['org_id' => $orgId, 'id' => $id]);
+        Audit::log($pdo, $orgId, $actorUserId, 'dish', $id, 'delete', $before, null);
+    }
+
+    public static function hasMenuItems(PDO $pdo, int $orgId, int $id): bool
+    {
+        $stmt = $pdo->prepare(
+            'SELECT 1 FROM menu_items WHERE org_id = :org_id AND dish_id = :id LIMIT 1'
+        );
+        $stmt->execute(['org_id' => $orgId, 'id' => $id]);
+        return (bool) $stmt->fetchColumn();
+    }
+
+    public static function hasMenuSnapshots(PDO $pdo, int $orgId, int $id): bool
+    {
+        $stmt = $pdo->prepare(
+            'SELECT 1 FROM menu_item_cost_snapshots WHERE org_id = :org_id AND dish_id = :id LIMIT 1'
+        );
+        $stmt->execute(['org_id' => $orgId, 'id' => $id]);
+        return (bool) $stmt->fetchColumn();
+    }
 }
