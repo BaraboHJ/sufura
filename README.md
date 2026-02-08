@@ -1,15 +1,14 @@
 # Sufura (Menu Costing App)
 
 ## Setup
-1. Create a database and import schema + seed:
-   ```bash
-   mysql -u root -p < sql/001_init.sql
-   mysql -u root -p < sql/002_seed.sql
-   ```
-
-2. Copy config and update credentials:
+1. Copy config and update credentials:
    ```bash
    cp config/config.example.php config/config.php
+   ```
+
+2. Create a database and import schema + seed:
+   ```bash
+   php scripts/setup_database.php
    ```
 
 3. Start the PHP built-in server:
