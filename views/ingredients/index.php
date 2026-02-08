@@ -19,7 +19,11 @@ $statusLabels = [
         <h1 class="h4 mb-0">Ingredients</h1>
         <p class="text-muted mb-0">Manage ingredient units and costs.</p>
     </div>
-    <a class="btn btn-primary" href="/ingredients/new">New Ingredient</a>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary" href="/ingredients/template">Download template</a>
+        <a class="btn btn-outline-primary" href="/ingredients/import">Bulk upload</a>
+        <a class="btn btn-primary" href="/ingredients/new">New Ingredient</a>
+    </div>
 </div>
 
 <?php if ($missingCount > 0): ?>

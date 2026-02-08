@@ -18,7 +18,11 @@ $statusLabels = [
         <h1 class="h4 mb-1">Dishes</h1>
         <p class="text-muted mb-0">Manage recipe yields, costs, and completeness.</p>
     </div>
-    <a class="btn btn-primary" href="/dishes/new">New Dish</a>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary" href="/dishes/template">Download template</a>
+        <a class="btn btn-outline-primary" href="/dishes/import">Bulk upload</a>
+        <a class="btn btn-primary" href="/dishes/new">New Dish</a>
+    </div>
 </div>
 
 <div class="card shadow-sm">
