@@ -1,22 +1,24 @@
 # Sufura (Menu Costing App)
 
-## Setup
-1. Copy config and update credentials:
-   ```bash
-   cp config/config.example.php config/config.php
-   ```
+## Setup (Shared Hosting — No CLI)
+1. **Upload files**
+   - Upload the entire project to your hosting account.
+   - Set your document root to the `public/` directory.
+     - If your host can’t change the document root, move the contents of `public/` into your web root and keep the rest of the project one level above it.
 
-2. Create a database and import schema + seed:
-   ```bash
-   php scripts/setup_database.php
-   ```
+2. **Create config**
+   - Copy `config/config.example.php` to `config/config.php` using your file manager or FTP.
+   - Open `config/config.php` and update the database credentials for your hosting account.
 
-3. Start the PHP built-in server:
-   ```bash
-   php -S localhost:8000 -t public
-   ```
+3. **Create database**
+   - In your hosting control panel (e.g., cPanel), create a MySQL database and user, then grant the user full privileges to the database.
 
-4. Visit http://localhost:8000
+4. **Import schema + seed**
+   - Open phpMyAdmin (or your host’s database tool).
+   - Import the SQL file at `sql/schema.sql`, then import `sql/seed.sql`.
+
+5. **Visit the site**
+   - Navigate to your domain (e.g., `https://your-domain.com`).
 
 ## Default Login
 - Email: `admin@example.com`
