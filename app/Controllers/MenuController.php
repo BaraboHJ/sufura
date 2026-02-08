@@ -15,6 +15,7 @@ use PDO;
 class MenuController
 {
     private PDO $pdo;
+    private array $compareCache = [];
 
     public function __construct(PDO $pdo)
     {
@@ -228,6 +229,71 @@ class MenuController
 
         $updated = Menu::update($this->pdo, $orgId, $actor['id'] ?? 0, $menuId, $data);
         echo json_encode(['menu' => $updated]);
+    }
+
+    public function compareForm(): void
+    {
+        Auth::requireLogin();
+        $orgId = Auth::currentOrgId();
+        $menus = Menu::listByOrg($this->pdo, $orgId);
+        $pageTitle = 'Compare Menus';
+        $view = __DIR__ . '/../../views/menus/compare.php';
+        require __DIR__ . '/../../views/layout.php';
+    }
+
+    public function compareView(): void
+    {
+        Auth::requireLogin();
+        $idsParam = trim($_GET['ids'] ?? '');
+        $menuIds = $this->parseMenuIds($idsParam);
+        if (count($menuIds) < 2 || count($menuIds) > 4) {
+            $_SESSION['flash_error'] = 'Select between 2 and 4 menus to compare.';
+            header('Location: /menus/compare');
+            exit;
+        }
+        $pageTitle = 'Menu Comparison';
+        $view = __DIR__ . '/../../views/menus/compare_view.php';
+        require __DIR__ . '/../../views/layout.php';
+    }
+
+    public function compareApi(): void
+    {
+        Auth::requireLogin();
+        header('Content-Type: application/json');
+        $token = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? null;
+        if (!Csrf::validate($token)) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Invalid CSRF token.']);
+            return;
+        }
+
+        $payload = $this->jsonPayload();
+        if (!$payload) {
+            http_response_code(422);
+            echo json_encode(['error' => 'Invalid payload.']);
+            return;
+        }
+
+        $menuIds = $payload['menu_ids'] ?? [];
+        if (!is_array($menuIds)) {
+            http_response_code(422);
+            echo json_encode(['error' => 'menu_ids must be an array.']);
+            return;
+        }
+
+        $menuIds = array_values(array_unique(array_map('intval', $menuIds)));
+        if (count($menuIds) < 2 || count($menuIds) > 4) {
+            http_response_code(422);
+            echo json_encode(['error' => 'Select between 2 and 4 menus.']);
+            return;
+        }
+
+        $orgId = Auth::currentOrgId();
+        $payload = $this->buildComparePayload($orgId, $menuIds);
+        if (isset($payload['error'])) {
+            http_response_code(404);
+        }
+        echo json_encode($payload);
     }
 
     public function compute(array $params): void
@@ -820,6 +886,329 @@ class MenuController
         $stmt->execute(['org_id' => $orgId, 'ingredient_id' => $ingredientId]);
         $row = $stmt->fetch();
         return $row ?: null;
+    }
+
+    private function parseMenuIds(string $idsParam): array
+    {
+        if ($idsParam === '') {
+            return [];
+        }
+        $ids = array_filter(array_map('trim', explode(',', $idsParam)));
+        $ids = array_values(array_unique(array_map('intval', $ids)));
+        return array_values(array_filter($ids, function (int $id): bool {
+            return $id > 0;
+        }));
+    }
+
+    private function buildComparePayload(int $orgId, array $menuIds): array
+    {
+        $menus = $this->menusByIds($orgId, $menuIds);
+        if (count($menus) !== count($menuIds)) {
+            return ['error' => 'One or more menus could not be found.'];
+        }
+
+        $groups = $this->menuGroupsByMenuIds($orgId, $menuIds);
+        $items = $this->menuItemsByMenuIds($orgId, $menuIds);
+        $dishIds = array_values(array_unique(array_map(function (array $item): int {
+            return (int) $item['dish_id'];
+        }, $items)));
+        $dishCosts = $this->dishCostsByIds($orgId, $dishIds);
+
+        $groupsByMenu = [];
+        foreach ($groups as $group) {
+            $groupsByMenu[(int) $group['menu_id']][] = $group;
+        }
+
+        $itemsByMenu = [];
+        foreach ($items as $item) {
+            $itemsByMenu[(int) $item['menu_id']][] = $item;
+        }
+
+        $groupKeys = [];
+        foreach ($groups as $group) {
+            $key = $this->normalizeGroupKey($group['name']);
+            if (!isset($groupKeys[$key])) {
+                $groupKeys[$key] = $group['name'];
+            }
+        }
+
+        $menuSummaries = [];
+        $itemsByGroup = [];
+
+        foreach ($menuIds as $menuId) {
+            $menu = $menus[$menuId];
+            $menuGroups = $groupsByMenu[$menuId] ?? [];
+            $menuItems = $itemsByMenu[$menuId] ?? [];
+
+            if ($menu['cost_mode'] === 'locked') {
+                $report = $this->lockedReport($orgId, $menu, $menuGroups, null);
+            } else {
+                $menuItems = array_map(function (array $item) use ($dishCosts): array {
+                    $dishId = (int) $item['dish_id'];
+                    $item['dish_cost_per_serving_minor'] = $dishCosts[$dishId]['cost_per_serving_minor'] ?? null;
+                    return $item;
+                }, $menuItems);
+                $report = $this->computeMenuReportCached($menuId, $menu, $menuGroups, $menuItems);
+            }
+
+            $menuSummaries[] = $this->buildMenuSummary($menu, $menuGroups, $report);
+
+            $reportItems = [];
+            foreach ($report['items'] as $reportItem) {
+                $reportItems[(int) $reportItem['id']] = $reportItem;
+            }
+
+            foreach ($menuItems as $item) {
+                $groupId = (int) $item['menu_group_id'];
+                $groupName = $this->groupNameById($menuGroups, $groupId);
+                $groupKey = $this->normalizeGroupKey($groupName);
+                $name = $item['display_name'] ?: $item['dish_name'];
+                $itemReport = $reportItems[(int) $item['id']] ?? null;
+                $itemsByGroup[$groupKey][$menuId][] = [
+                    'id' => (int) $item['id'],
+                    'dish_id' => (int) $item['dish_id'],
+                    'name' => $name,
+                    'display_description' => $item['display_description'],
+                    'dish_name' => $item['dish_name'],
+                    'cost_per_pax_minor' => $itemReport['item_cost_per_pax_minor'] ?? null,
+                    'selling_price_minor' => $item['selling_price_minor'],
+                    'uptake_pct' => $itemReport['effective_uptake_pct'] ?? $item['uptake_pct'],
+                    'portion' => $itemReport['effective_portion'] ?? $item['portion'],
+                ];
+            }
+        }
+
+        $groupList = [];
+        foreach ($groupKeys as $key => $name) {
+            $groupList[] = ['key' => $key, 'name' => $name];
+        }
+
+        return [
+            'menus' => $menuSummaries,
+            'groups' => $groupList,
+            'items' => $itemsByGroup,
+        ];
+    }
+
+    private function computeMenuReportCached(int $menuId, array $menu, array $groups, array $items): array
+    {
+        if (isset($this->compareCache[$menuId])) {
+            return $this->compareCache[$menuId];
+        }
+        $report = MenuCost::computeLive($this->pdo, $menu, $groups, $items, null);
+        $this->compareCache[$menuId] = $report;
+        return $report;
+    }
+
+    private function buildMenuSummary(array $menu, array $groups, array $report): array
+    {
+        $priceMin = $menu['price_min_minor'] ?? null;
+        $priceMax = $menu['price_max_minor'] ?? null;
+        $priceMax = $priceMax ?? $priceMin;
+        $costPerPax = $report['menu_cost_per_pax_minor'] ?? null;
+        $pricePerPax = $menu['menu_type'] === 'per_item'
+            ? $this->perItemPricePerPax($report['items'])
+            : $priceMin;
+
+        $pricePerPaxMax = $menu['menu_type'] === 'per_item'
+            ? $pricePerPax
+            : $priceMax;
+
+        $profitMin = ($pricePerPax !== null && $costPerPax !== null) ? $pricePerPax - $costPerPax : null;
+        $profitMax = ($pricePerPaxMax !== null && $costPerPax !== null) ? $pricePerPaxMax - $costPerPax : null;
+
+        $foodCostMin = ($pricePerPax && $costPerPax !== null) ? ($costPerPax / $pricePerPax) : null;
+        $foodCostMax = ($pricePerPaxMax && $costPerPax !== null) ? ($costPerPax / $pricePerPaxMax) : null;
+
+        return [
+            'id' => (int) $menu['id'],
+            'name' => $menu['name'],
+            'menu_type' => $menu['menu_type'],
+            'currency' => $menu['currency'],
+            'price_min_minor' => $priceMin,
+            'price_max_minor' => $priceMax,
+            'cost_mode' => $menu['cost_mode'],
+            'menu_cost_per_pax_minor' => $costPerPax,
+            'profit_min_minor' => $profitMin,
+            'profit_max_minor' => $profitMax,
+            'food_cost_pct_min' => $foodCostMin,
+            'food_cost_pct_max' => $foodCostMax,
+        ];
+    }
+
+    private function perItemPricePerPax(array $reportItems): ?int
+    {
+        if (empty($reportItems)) {
+            return null;
+        }
+        $total = 0;
+        foreach ($reportItems as $item) {
+            $uptake = $item['effective_uptake_pct'] ?? 0;
+            $portion = $item['effective_portion'] ?? 0;
+            $price = $item['selling_price_minor'] ?? 0;
+            $total += (int) round($price * $uptake * $portion);
+        }
+        return $total;
+    }
+
+    private function groupNameById(array $groups, int $groupId): string
+    {
+        foreach ($groups as $group) {
+            if ((int) $group['id'] === $groupId) {
+                return $group['name'];
+            }
+        }
+        return 'Ungrouped';
+    }
+
+    private function normalizeGroupKey(string $name): string
+    {
+        return strtolower(trim($name));
+    }
+
+    private function menusByIds(int $orgId, array $menuIds): array
+    {
+        if (empty($menuIds)) {
+            return [];
+        }
+        $placeholders = implode(',', array_fill(0, count($menuIds), '?'));
+        $stmt = $this->pdo->prepare(
+            'SELECT id, org_id, name, menu_type, price_min_minor, price_max_minor, currency, price_label_suffix, min_pax,
+                    default_waste_pct, show_descriptions, servings, cost_mode, locked_at, locked_by_user_id, created_at, updated_at
+             FROM menus
+             WHERE org_id = ? AND id IN (' . $placeholders . ')'
+        );
+        $stmt->execute(array_merge([$orgId], $menuIds));
+        $rows = $stmt->fetchAll();
+        $map = [];
+        foreach ($rows as $row) {
+            $map[(int) $row['id']] = $row;
+        }
+        return $map;
+    }
+
+    private function menuGroupsByMenuIds(int $orgId, array $menuIds): array
+    {
+        if (empty($menuIds)) {
+            return [];
+        }
+        $placeholders = implode(',', array_fill(0, count($menuIds), '?'));
+        $stmt = $this->pdo->prepare(
+            'SELECT id, menu_id, name, uptake_pct, portion, waste_pct, sort_order, created_at, updated_at
+             FROM menu_groups
+             WHERE org_id = ? AND menu_id IN (' . $placeholders . ')
+             ORDER BY sort_order ASC, id ASC'
+        );
+        $stmt->execute(array_merge([$orgId], $menuIds));
+        return $stmt->fetchAll();
+    }
+
+    private function menuItemsByMenuIds(int $orgId, array $menuIds): array
+    {
+        if (empty($menuIds)) {
+            return [];
+        }
+        $placeholders = implode(',', array_fill(0, count($menuIds), '?'));
+        $stmt = $this->pdo->prepare(
+            'SELECT mi.id,
+                    mi.menu_group_id,
+                    mg.menu_id,
+                    mi.dish_id,
+                    mi.display_name,
+                    mi.display_description,
+                    mi.uptake_pct,
+                    mi.portion,
+                    mi.waste_pct,
+                    mi.selling_price_minor,
+                    mi.sort_order,
+                    d.name AS dish_name,
+                    d.description AS dish_description,
+                    d.yield_servings AS dish_yield_servings
+             FROM menu_items mi
+             JOIN menu_groups mg ON mg.id = mi.menu_group_id AND mg.org_id = mi.org_id
+             JOIN dishes d ON d.id = mi.dish_id AND d.org_id = mi.org_id
+             WHERE mi.org_id = ? AND mg.menu_id IN (' . $placeholders . ')
+             ORDER BY mg.sort_order ASC, mi.sort_order ASC, mi.id ASC'
+        );
+        $stmt->execute(array_merge([$orgId], $menuIds));
+        return $stmt->fetchAll();
+    }
+
+    private function dishCostsByIds(int $orgId, array $dishIds): array
+    {
+        if (empty($dishIds)) {
+            return [];
+        }
+        $placeholders = implode(',', array_fill(0, count($dishIds), '?'));
+        $sql = 'SELECT d.id AS dish_id,
+                       d.yield_servings,
+                       dl.quantity,
+                       u.factor_to_base,
+                       u.uom_set_id AS uom_set_id,
+                       i.uom_set_id AS ingredient_uom_set_id,
+                       ic.cost_per_base_x10000
+                FROM dishes d
+                LEFT JOIN dish_lines dl ON dl.dish_id = d.id AND dl.org_id = d.org_id
+                LEFT JOIN ingredients i ON i.id = dl.ingredient_id AND i.org_id = dl.org_id
+                LEFT JOIN uoms u ON u.id = dl.uom_id AND u.org_id = dl.org_id
+                LEFT JOIN (
+                    SELECT ic1.ingredient_id, ic1.cost_per_base_x10000, ic1.effective_at
+                    FROM ingredient_costs ic1
+                    JOIN (
+                        SELECT ingredient_id, MAX(effective_at) AS max_effective
+                        FROM ingredient_costs
+                        WHERE org_id = ?
+                        GROUP BY ingredient_id
+                    ) latest
+                        ON latest.ingredient_id = ic1.ingredient_id AND latest.max_effective = ic1.effective_at
+                    WHERE ic1.org_id = ?
+                ) ic ON ic.ingredient_id = dl.ingredient_id
+                WHERE d.org_id = ? AND d.id IN (' . $placeholders . ')';
+        $params = array_merge([$orgId, $orgId, $orgId], $dishIds);
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll();
+
+        $summary = [];
+        foreach ($rows as $row) {
+            $dishId = (int) $row['dish_id'];
+            if (!isset($summary[$dishId])) {
+                $summary[$dishId] = [
+                    'yield_servings' => (int) $row['yield_servings'],
+                    'total_cost_minor' => 0,
+                    'missing' => false,
+                    'lines' => 0,
+                ];
+            }
+            if ($row['quantity'] === null) {
+                continue;
+            }
+            $summary[$dishId]['lines']++;
+            $costPerBase = $row['cost_per_base_x10000'] !== null ? (int) $row['cost_per_base_x10000'] : null;
+            $invalidUnits = $row['uom_set_id'] !== null
+                && $row['ingredient_uom_set_id'] !== null
+                && (int) $row['uom_set_id'] !== (int) $row['ingredient_uom_set_id'];
+            if ($costPerBase === null || $invalidUnits) {
+                $summary[$dishId]['missing'] = true;
+                continue;
+            }
+            $qtyInBase = (float) $row['quantity'] * (float) $row['factor_to_base'];
+            $summary[$dishId]['total_cost_minor'] += (int) round(($qtyInBase * $costPerBase) / 10000);
+        }
+
+        $costs = [];
+        foreach ($summary as $dishId => $data) {
+            $costPerServing = null;
+            if (!$data['missing']) {
+                $yield = $data['yield_servings'];
+                $costPerServing = $yield > 0 ? (int) round($data['total_cost_minor'] / $yield) : null;
+            }
+            $costs[$dishId] = [
+                'cost_per_serving_minor' => $costPerServing,
+            ];
+        }
+
+        return $costs;
     }
 
     private function payloadFromRequest(): array

@@ -85,6 +85,9 @@ CREATE TABLE ingredient_costs (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     org_id BIGINT UNSIGNED NOT NULL,
     ingredient_id BIGINT UNSIGNED NOT NULL,
+    purchase_qty DECIMAL(18,6) NULL,
+    purchase_uom_id BIGINT UNSIGNED NULL,
+    total_cost_minor INT NULL,
     cost_per_base_x10000 INT NOT NULL,
     currency CHAR(3) NOT NULL,
     effective_at DATETIME NOT NULL,
@@ -93,7 +96,8 @@ CREATE TABLE ingredient_costs (
     INDEX idx_ingredient_costs_ingredient (ingredient_id),
     INDEX idx_ingredient_costs_effective (effective_at),
     CONSTRAINT fk_ingredient_costs_org FOREIGN KEY (org_id) REFERENCES organizations(id),
-    CONSTRAINT fk_ingredient_costs_ingredient FOREIGN KEY (ingredient_id) REFERENCES ingredients(id)
+    CONSTRAINT fk_ingredient_costs_ingredient FOREIGN KEY (ingredient_id) REFERENCES ingredients(id),
+    CONSTRAINT fk_ingredient_costs_uom FOREIGN KEY (purchase_uom_id) REFERENCES uoms(id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE dishes (
@@ -247,7 +251,7 @@ CREATE TABLE cost_imports (
     org_id BIGINT UNSIGNED NOT NULL,
     uploaded_by_user_id BIGINT UNSIGNED NOT NULL,
     original_filename VARCHAR(255) NOT NULL,
-    status ENUM('pending','processed','failed') NOT NULL DEFAULT 'pending',
+    status ENUM('uploaded','applied','failed') NOT NULL DEFAULT 'uploaded',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_cost_imports_org (org_id),
     CONSTRAINT fk_cost_imports_org FOREIGN KEY (org_id) REFERENCES organizations(id),
@@ -263,8 +267,9 @@ CREATE TABLE cost_import_rows (
     matched_ingredient_id BIGINT UNSIGNED NULL,
     purchase_qty DECIMAL(18,6) NULL,
     purchase_uom_symbol VARCHAR(20) NULL,
+    purchase_uom_id BIGINT UNSIGNED NULL,
     total_cost_minor INT NULL,
-    parse_status ENUM('pending','matched','error') NOT NULL DEFAULT 'pending',
+    parse_status ENUM('matched_ok','missing_ingredient','invalid_uom','invalid_number') NOT NULL,
     error_message VARCHAR(255) NULL,
     computed_cost_per_base_x10000 INT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -272,5 +277,6 @@ CREATE TABLE cost_import_rows (
     INDEX idx_cost_import_rows_org (org_id),
     CONSTRAINT fk_cost_import_rows_import FOREIGN KEY (import_id) REFERENCES cost_imports(id),
     CONSTRAINT fk_cost_import_rows_org FOREIGN KEY (org_id) REFERENCES organizations(id),
-    CONSTRAINT fk_cost_import_rows_ingredient FOREIGN KEY (matched_ingredient_id) REFERENCES ingredients(id)
+    CONSTRAINT fk_cost_import_rows_ingredient FOREIGN KEY (matched_ingredient_id) REFERENCES ingredients(id),
+    CONSTRAINT fk_cost_import_rows_uom FOREIGN KEY (purchase_uom_id) REFERENCES uoms(id)
 ) ENGINE=InnoDB;

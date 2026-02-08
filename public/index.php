@@ -42,6 +42,7 @@ use App\Controllers\AdminUserController;
 use App\Controllers\IngredientController;
 use App\Controllers\DishController;
 use App\Controllers\MenuController;
+use App\Controllers\ImportController;
 
 $pdo = DB::conn($config);
 $router = new Router();
@@ -52,6 +53,7 @@ $adminUserController = new AdminUserController($pdo);
 $ingredientController = new IngredientController($pdo);
 $dishController = new DishController($pdo);
 $menuController = new MenuController($pdo);
+$importController = new ImportController($pdo);
 
 $router->get('/', [$homeController, 'index']);
 $router->get('/login', [$authController, 'showLogin']);
@@ -100,6 +102,14 @@ $router->post('/api/menu-items/:id/update', [$menuController, 'updateItem']);
 $router->post('/api/menu-items/:id/delete', [$menuController, 'deleteItem']);
 $router->post('/api/menus/:id/lock', [$menuController, 'lock']);
 $router->post('/api/menus/:id/unlock', [$menuController, 'unlock']);
+$router->get('/menus/compare', [$menuController, 'compareForm']);
+$router->get('/menus/compare/view', [$menuController, 'compareView']);
+$router->post('/api/menus/compare', [$menuController, 'compareApi']);
+$router->get('/imports/costs', [$importController, 'index']);
+$router->get('/imports/costs/new', [$importController, 'createForm']);
+$router->get('/imports/costs/:id', [$importController, 'show']);
+$router->post('/api/imports/costs/upload', [$importController, 'upload']);
+$router->post('/api/imports/costs/:id/confirm', [$importController, 'confirm']);
 
 $route = $_GET['r'] ?? null;
 $path = $route ? '/' . ltrim($route, '/') : parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
