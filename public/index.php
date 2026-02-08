@@ -38,21 +38,28 @@ use App\Core\DB;
 use App\Core\Router;
 use App\Controllers\HomeController;
 use App\Controllers\AuthController;
+use App\Controllers\AdminUserController;
 
 $pdo = DB::conn($config);
 $router = new Router();
 
 $homeController = new HomeController();
 $authController = new AuthController($pdo);
+$adminUserController = new AdminUserController($pdo);
 
 $router->get('/', [$homeController, 'index']);
 $router->get('/login', [$authController, 'showLogin']);
 $router->post('/login', [$authController, 'login']);
-$router->get('/logout', [$authController, 'logout']);
+$router->post('/logout', [$authController, 'logout']);
+$router->get('/admin/users', [$adminUserController, 'index']);
+$router->get('/admin/users/new', [$adminUserController, 'createForm']);
+$router->post('/admin/users/create', [$adminUserController, 'create']);
+$router->post('/admin/users/:id/update', [$adminUserController, 'update']);
 
-$route = $_GET['r'] ?? '/';
-$route = '/' . ltrim($route, '/');
+$route = $_GET['r'] ?? null;
+$path = $route ? '/' . ltrim($route, '/') : parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+$path = $path ?: '/';
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
-$router->dispatch($route, $method);
+$router->dispatch($path, $method);
