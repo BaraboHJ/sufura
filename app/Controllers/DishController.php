@@ -395,6 +395,68 @@ class DishController
         echo json_encode($breakdown);
     }
 
+    public function search(): void
+    {
+        Auth::requireLogin();
+        header('Content-Type: application/json');
+        $orgId = Auth::currentOrgId();
+        $query = trim($_GET['query'] ?? '');
+        if ($query === '') {
+            echo json_encode(['results' => []]);
+            return;
+        }
+
+        $like = '%' . $query . '%';
+        $stmt = $this->pdo->prepare(
+            'SELECT id, name, description, yield_servings
+             FROM dishes
+             WHERE org_id = :org_id AND name LIKE :query
+             ORDER BY name
+             LIMIT 25'
+        );
+        $stmt->execute(['org_id' => $orgId, 'query' => $like]);
+        $results = $stmt->fetchAll();
+
+        echo json_encode(['results' => $results]);
+    }
+
+    public function createFromApi(): void
+    {
+        Auth::requireRole(['admin', 'editor']);
+        header('Content-Type: application/json');
+        $token = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? null;
+        if (!Csrf::validate($token)) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Invalid CSRF token.']);
+            return;
+        }
+
+        $payload = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($payload)) {
+            http_response_code(422);
+            echo json_encode(['error' => 'Invalid payload.']);
+            return;
+        }
+
+        $name = trim((string) ($payload['name'] ?? ''));
+        if ($name === '') {
+            http_response_code(422);
+            echo json_encode(['error' => 'Name is required.']);
+            return;
+        }
+
+        $orgId = Auth::currentOrgId();
+        $actor = Auth::currentUser();
+        $dish = Dish::create($this->pdo, $orgId, $actor['id'] ?? 0, [
+            'name' => $name,
+            'description' => trim((string) ($payload['description'] ?? '')),
+            'yield_servings' => isset($payload['yield_servings']) ? (int) $payload['yield_servings'] : 1,
+            'active' => 1,
+        ]);
+
+        echo json_encode(['dish' => $dish]);
+    }
+
     private function payloadFromRequest(): array
     {
         return [
