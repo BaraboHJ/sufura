@@ -228,6 +228,9 @@ class IngredientController
             'cost_per_base_x10000' => $costPerBaseX10000,
             'currency' => $org['default_currency'] ?? 'USD',
             'effective_at' => date('Y-m-d H:i:s'),
+            'purchase_qty' => $purchaseQty,
+            'purchase_uom_id' => $purchaseUomId,
+            'total_cost_minor' => $totalCostMinor,
         ]);
 
         echo json_encode([

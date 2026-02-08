@@ -13,7 +13,10 @@ function format_money(?int $minor, string $currency): string
         <h1 class="h3 mb-1">Menus</h1>
         <p class="text-muted mb-0">Track package and per-item menus, live costs, and locked quotes.</p>
     </div>
-    <a class="btn btn-primary" href="/menus/new">New Menu</a>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary" href="/menus/compare">Compare Menus</a>
+        <a class="btn btn-primary" href="/menus/new">New Menu</a>
+    </div>
 </div>
 
 <div class="card shadow-sm">

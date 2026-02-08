@@ -59,12 +59,21 @@ class Ingredient
     {
         $before = self::latestCost($pdo, $orgId, $ingredientId);
         $stmt = $pdo->prepare(
-            'INSERT INTO ingredient_costs (org_id, ingredient_id, cost_per_base_x10000, currency, effective_at)
-             VALUES (:org_id, :ingredient_id, :cost_per_base_x10000, :currency, :effective_at)'
+            'INSERT INTO ingredient_costs (
+                org_id, ingredient_id, purchase_qty, purchase_uom_id, total_cost_minor,
+                cost_per_base_x10000, currency, effective_at
+             )
+             VALUES (
+                :org_id, :ingredient_id, :purchase_qty, :purchase_uom_id, :total_cost_minor,
+                :cost_per_base_x10000, :currency, :effective_at
+             )'
         );
         $stmt->execute([
             'org_id' => $orgId,
             'ingredient_id' => $ingredientId,
+            'purchase_qty' => $payload['purchase_qty'] ?? null,
+            'purchase_uom_id' => $payload['purchase_uom_id'] ?? null,
+            'total_cost_minor' => $payload['total_cost_minor'] ?? null,
             'cost_per_base_x10000' => $payload['cost_per_base_x10000'],
             'currency' => $payload['currency'],
             'effective_at' => $payload['effective_at'],
@@ -91,7 +100,8 @@ class Ingredient
     public static function latestCost(PDO $pdo, int $orgId, int $ingredientId): ?array
     {
         $stmt = $pdo->prepare(
-            'SELECT id, ingredient_id, cost_per_base_x10000, currency, effective_at, created_at
+            'SELECT id, ingredient_id, purchase_qty, purchase_uom_id, total_cost_minor,
+                    cost_per_base_x10000, currency, effective_at, created_at
              FROM ingredient_costs
              WHERE org_id = :org_id AND ingredient_id = :ingredient_id
              ORDER BY effective_at DESC, id DESC

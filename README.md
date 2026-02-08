@@ -29,3 +29,15 @@
 - All monetary values are stored in minor units (integers) with currency columns.
 - All records are scoped to `org_id` for multi-tenancy.
 - CSRF protection is enforced for all POST/PUT/PATCH/DELETE requests.
+
+## Bulk Cost Import (CSV)
+1. Go to **Cost Imports** → **New Import**.
+2. Upload a CSV with headers (case-insensitive):
+   - `ingredient_name`
+   - `purchase_qty`
+   - `purchase_uom`
+   - `total_cost`
+3. Review the preview table and confirm the import.
+4. If any ingredients were updated today, check the overwrite confirmation box before applying.
+
+The import parser trims and normalizes ingredient names, matches units by symbol within the ingredient’s UOM set, and computes cost per base unit from the purchase quantity and total cost.

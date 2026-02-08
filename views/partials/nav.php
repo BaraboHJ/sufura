@@ -16,6 +16,8 @@ $user = Auth::user();
                     <li class="nav-item"><a class="nav-link" href="/?r=ingredients">Ingredients</a></li>
                     <li class="nav-item"><a class="nav-link" href="/?r=dishes">Dishes</a></li>
                     <li class="nav-item"><a class="nav-link" href="/?r=menus">Menus</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/?r=menus/compare">Compare Menus</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/?r=imports/costs">Cost Imports</a></li>
                     <?php if ($user['role'] === 'admin'): ?>
                         <li class="nav-item"><a class="nav-link" href="/admin/users">Admin</a></li>
                     <?php endif; ?>
