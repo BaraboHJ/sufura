@@ -34,8 +34,9 @@ class AuthController
         $password = $_POST['password'] ?? '';
 
         if (!Auth::login($this->pdo, $email, $password)) {
-            $_SESSION['flash_error'] = 'Invalid credentials.';
-            header('Location: /?r=login');
+            $_SESSION['flash_error'] = 'Invalid credentials or inactive account.';
+            $_SESSION['form_values'] = ['email' => $email];
+            header('Location: /login');
             exit;
         }
 
@@ -45,8 +46,14 @@ class AuthController
 
     public function logout(): void
     {
+        if (!Csrf::validate($_POST['csrf_token'] ?? null)) {
+            http_response_code(403);
+            echo 'Invalid CSRF token.';
+            return;
+        }
+
         Auth::logout();
-        header('Location: /?r=login');
+        header('Location: /login');
         exit;
     }
 }

@@ -1,10 +1,11 @@
 <?php
 use App\Core\Auth;
-use App\Core\Csrf;
 
 $user = Auth::user();
 $flashError = $_SESSION['flash_error'] ?? null;
+$flashSuccess = $_SESSION['flash_success'] ?? null;
 unset($_SESSION['flash_error']);
+unset($_SESSION['flash_success']);
 ?>
 <!doctype html>
 <html lang="en">
@@ -19,6 +20,9 @@ unset($_SESSION['flash_error']);
 <main class="container py-4">
     <?php if ($flashError): ?>
         <div class="alert alert-danger"><?= htmlspecialchars($flashError, ENT_QUOTES) ?></div>
+    <?php endif; ?>
+    <?php if ($flashSuccess): ?>
+        <div class="alert alert-success"><?= htmlspecialchars($flashSuccess, ENT_QUOTES) ?></div>
     <?php endif; ?>
 
     <?php if (isset($view) && file_exists($view)) {

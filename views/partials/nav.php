@@ -1,5 +1,6 @@
 <?php
 use App\Core\Auth;
+use App\Core\Csrf;
 
 $user = Auth::user();
 ?>
@@ -15,14 +16,22 @@ $user = Auth::user();
                     <li class="nav-item"><a class="nav-link" href="/?r=ingredients">Ingredients</a></li>
                     <li class="nav-item"><a class="nav-link" href="/?r=dishes">Dishes</a></li>
                     <li class="nav-item"><a class="nav-link" href="/?r=menus">Menus</a></li>
+                    <?php if ($user['role'] === 'admin'): ?>
+                        <li class="nav-item"><a class="nav-link" href="/admin/users">Admin</a></li>
+                    <?php endif; ?>
                 <?php endif; ?>
             </ul>
             <ul class="navbar-nav">
                 <?php if ($user): ?>
                     <li class="nav-item"><span class="navbar-text me-3">Hello, <?= htmlspecialchars($user['name'], ENT_QUOTES) ?></span></li>
-                    <li class="nav-item"><a class="nav-link" href="/?r=logout">Logout</a></li>
+                    <li class="nav-item">
+                        <form method="post" action="/logout" class="d-inline">
+                            <?= Csrf::input() ?>
+                            <button class="btn btn-link nav-link" type="submit">Logout</button>
+                        </form>
+                    </li>
                 <?php else: ?>
-                    <li class="nav-item"><a class="nav-link" href="/?r=login">Login</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/login">Login</a></li>
                 <?php endif; ?>
             </ul>
         </div>
