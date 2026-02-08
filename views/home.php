@@ -8,22 +8,13 @@ $user = Auth::user();
     <p class="text-muted">Start by adding ingredients, building recipes, and assembling menus. Costing remains transparent with audit trails and lockable snapshots.</p>
     <div class="row g-3">
         <div class="col-md-4">
-            <div class="border rounded p-3 h-100">
-                <h2 class="h6">Transparency by default</h2>
-                <p class="mb-0">Every cost update is stored with history, so teams can understand how each menu price is derived.</p>
-            </div>
+            <a class="btn btn-outline-primary w-100" href="/?r=ingredients">View Ingredients</a>
         </div>
         <div class="col-md-4">
-            <div class="border rounded p-3 h-100">
-                <h2 class="h6">Lock costs when needed</h2>
-                <p class="mb-0">Snapshot menu costs to keep reporting stable even as ingredient prices change.</p>
-            </div>
+            <a class="btn btn-outline-primary w-100" href="/?r=dishes">View Dishes</a>
         </div>
         <div class="col-md-4">
-            <div class="border rounded p-3 h-100">
-                <h2 class="h6">Bulk cost updates</h2>
-                <p class="mb-0">Import CSV files to update ingredient costs quickly and review parsing errors.</p>
-            </div>
+            <a class="btn btn-outline-primary w-100" href="/?r=menus">View Menus</a>
         </div>
     </div>
 </div>
