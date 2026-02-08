@@ -10,7 +10,7 @@ class MenuItem
     {
         $stmt = $pdo->prepare(
             'INSERT INTO menu_items
-                (org_id, menu_group_id, dish_id, display_name, display_description, uptake_pct, portion, waste_pct, selling_price_minor, sort_order, created_at)
+                (org_id, menu_group_id, dish_id, display_name, display_description, uptake_pct, `portion`, waste_pct, selling_price_minor, sort_order, created_at)
              VALUES
                 (:org_id, :menu_group_id, :dish_id, :display_name, :display_description, :uptake_pct, :portion, :waste_pct, :selling_price_minor, :sort_order, NOW())'
         );
@@ -42,7 +42,7 @@ class MenuItem
              SET display_name = :display_name,
                  display_description = :display_description,
                  uptake_pct = :uptake_pct,
-                 portion = :portion,
+                 `portion` = :portion,
                  waste_pct = :waste_pct,
                  selling_price_minor = :selling_price_minor,
                  sort_order = :sort_order,
@@ -78,7 +78,7 @@ class MenuItem
     public static function findById(PDO $pdo, int $orgId, int $id): ?array
     {
         $stmt = $pdo->prepare(
-            'SELECT id, org_id, menu_group_id, dish_id, display_name, display_description, uptake_pct, portion, waste_pct,
+            'SELECT id, org_id, menu_group_id, dish_id, display_name, display_description, uptake_pct, `portion`, waste_pct,
                     selling_price_minor, sort_order, created_at, updated_at
              FROM menu_items
              WHERE org_id = :org_id AND id = :id'
@@ -97,7 +97,7 @@ class MenuItem
                     mi.display_name,
                     mi.display_description,
                     mi.uptake_pct,
-                    mi.portion,
+                    mi.`portion`,
                     mi.waste_pct,
                     mi.selling_price_minor,
                     mi.sort_order,

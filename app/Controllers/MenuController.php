@@ -630,7 +630,7 @@ class MenuController
 
             $itemStmt = $this->pdo->prepare(
                 'INSERT INTO menu_item_cost_snapshots
-                    (org_id, menu_id, menu_item_id, dish_id, dish_cost_per_serving_minor, uptake_pct, portion, waste_pct, item_cost_per_pax_minor, created_at)
+                    (org_id, menu_id, menu_item_id, dish_id, dish_cost_per_serving_minor, uptake_pct, `portion`, waste_pct, item_cost_per_pax_minor, created_at)
                  VALUES
                     (:org_id, :menu_id, :menu_item_id, :dish_id, :dish_cost_per_serving_minor, :uptake_pct, :portion, :waste_pct, :item_cost_per_pax_minor, NOW())'
             );
@@ -805,7 +805,7 @@ class MenuController
                     d.name AS dish_name,
                     s.dish_cost_per_serving_minor,
                     s.uptake_pct AS effective_uptake_pct,
-                    s.portion AS effective_portion,
+                    s.`portion` AS effective_portion,
                     s.waste_pct AS effective_waste_pct,
                     s.item_cost_per_pax_minor
              FROM menu_item_cost_snapshots s
@@ -1094,7 +1094,7 @@ class MenuController
         }
         $placeholders = implode(',', array_fill(0, count($menuIds), '?'));
         $stmt = $this->pdo->prepare(
-            'SELECT id, menu_id, name, uptake_pct, portion, waste_pct, sort_order, created_at, updated_at
+            'SELECT id, menu_id, name, uptake_pct, `portion`, waste_pct, sort_order, created_at, updated_at
              FROM menu_groups
              WHERE org_id = ? AND menu_id IN (' . $placeholders . ')
              ORDER BY sort_order ASC, id ASC'
@@ -1117,7 +1117,7 @@ class MenuController
                     mi.display_name,
                     mi.display_description,
                     mi.uptake_pct,
-                    mi.portion,
+                    mi.`portion`,
                     mi.waste_pct,
                     mi.selling_price_minor,
                     mi.sort_order,
