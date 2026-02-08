@@ -1,7 +1,4 @@
-CREATE DATABASE IF NOT EXISTS sufura CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE sufura;
-
-CREATE TABLE organizations (
+CREATE TABLE IF NOT EXISTS organizations (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     default_currency CHAR(3) NOT NULL DEFAULT 'USD',
@@ -11,7 +8,7 @@ CREATE TABLE organizations (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     org_id BIGINT UNSIGNED NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -25,7 +22,7 @@ CREATE TABLE users (
     CONSTRAINT fk_users_org FOREIGN KEY (org_id) REFERENCES organizations(id)
 ) ENGINE=InnoDB;
 
-CREATE TABLE audit_logs (
+CREATE TABLE IF NOT EXISTS audit_logs (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     org_id BIGINT UNSIGNED NOT NULL,
     actor_user_id BIGINT UNSIGNED NULL,
@@ -41,7 +38,7 @@ CREATE TABLE audit_logs (
     CONSTRAINT fk_audit_actor FOREIGN KEY (actor_user_id) REFERENCES users(id)
 ) ENGINE=InnoDB;
 
-CREATE TABLE uom_sets (
+CREATE TABLE IF NOT EXISTS uom_sets (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     org_id BIGINT UNSIGNED NOT NULL,
     name VARCHAR(100) NOT NULL,
@@ -50,7 +47,7 @@ CREATE TABLE uom_sets (
     CONSTRAINT fk_uom_sets_org FOREIGN KEY (org_id) REFERENCES organizations(id)
 ) ENGINE=InnoDB;
 
-CREATE TABLE uoms (
+CREATE TABLE IF NOT EXISTS uoms (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     org_id BIGINT UNSIGNED NOT NULL,
     uom_set_id BIGINT UNSIGNED NOT NULL,
@@ -66,7 +63,7 @@ CREATE TABLE uoms (
     CONSTRAINT fk_uoms_set FOREIGN KEY (uom_set_id) REFERENCES uom_sets(id)
 ) ENGINE=InnoDB;
 
-CREATE TABLE ingredients (
+CREATE TABLE IF NOT EXISTS ingredients (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     org_id BIGINT UNSIGNED NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -81,7 +78,7 @@ CREATE TABLE ingredients (
     CONSTRAINT fk_ingredients_uom_set FOREIGN KEY (uom_set_id) REFERENCES uom_sets(id)
 ) ENGINE=InnoDB;
 
-CREATE TABLE ingredient_costs (
+CREATE TABLE IF NOT EXISTS ingredient_costs (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     org_id BIGINT UNSIGNED NOT NULL,
     ingredient_id BIGINT UNSIGNED NOT NULL,
@@ -100,7 +97,7 @@ CREATE TABLE ingredient_costs (
     CONSTRAINT fk_ingredient_costs_uom FOREIGN KEY (purchase_uom_id) REFERENCES uoms(id)
 ) ENGINE=InnoDB;
 
-CREATE TABLE dishes (
+CREATE TABLE IF NOT EXISTS dishes (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     org_id BIGINT UNSIGNED NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -113,7 +110,7 @@ CREATE TABLE dishes (
     CONSTRAINT fk_dishes_org FOREIGN KEY (org_id) REFERENCES organizations(id)
 ) ENGINE=InnoDB;
 
-CREATE TABLE dish_lines (
+CREATE TABLE IF NOT EXISTS dish_lines (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     org_id BIGINT UNSIGNED NOT NULL,
     dish_id BIGINT UNSIGNED NOT NULL,
@@ -131,7 +128,7 @@ CREATE TABLE dish_lines (
     CONSTRAINT fk_dish_lines_uom FOREIGN KEY (uom_id) REFERENCES uoms(id)
 ) ENGINE=InnoDB;
 
-CREATE TABLE menus (
+CREATE TABLE IF NOT EXISTS menus (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     org_id BIGINT UNSIGNED NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -154,7 +151,7 @@ CREATE TABLE menus (
     CONSTRAINT fk_menus_locked_by FOREIGN KEY (locked_by_user_id) REFERENCES users(id)
 ) ENGINE=InnoDB;
 
-CREATE TABLE menu_groups (
+CREATE TABLE IF NOT EXISTS menu_groups (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     org_id BIGINT UNSIGNED NOT NULL,
     menu_id BIGINT UNSIGNED NOT NULL,
@@ -171,7 +168,7 @@ CREATE TABLE menu_groups (
     CONSTRAINT fk_menu_groups_menu FOREIGN KEY (menu_id) REFERENCES menus(id)
 ) ENGINE=InnoDB;
 
-CREATE TABLE menu_items (
+CREATE TABLE IF NOT EXISTS menu_items (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     org_id BIGINT UNSIGNED NOT NULL,
     menu_group_id BIGINT UNSIGNED NOT NULL,
@@ -192,7 +189,7 @@ CREATE TABLE menu_items (
     CONSTRAINT fk_menu_items_dish FOREIGN KEY (dish_id) REFERENCES dishes(id)
 ) ENGINE=InnoDB;
 
-CREATE TABLE menu_cost_snapshots (
+CREATE TABLE IF NOT EXISTS menu_cost_snapshots (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     org_id BIGINT UNSIGNED NOT NULL,
     menu_id BIGINT UNSIGNED NOT NULL,
@@ -207,7 +204,7 @@ CREATE TABLE menu_cost_snapshots (
     CONSTRAINT fk_menu_cost_snapshots_user FOREIGN KEY (locked_by_user_id) REFERENCES users(id)
 ) ENGINE=InnoDB;
 
-CREATE TABLE menu_item_cost_snapshots (
+CREATE TABLE IF NOT EXISTS menu_item_cost_snapshots (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     org_id BIGINT UNSIGNED NOT NULL,
     menu_id BIGINT UNSIGNED NOT NULL,
@@ -227,7 +224,7 @@ CREATE TABLE menu_item_cost_snapshots (
     CONSTRAINT fk_menu_item_cost_snapshots_dish FOREIGN KEY (dish_id) REFERENCES dishes(id)
 ) ENGINE=InnoDB;
 
-CREATE TABLE menu_ingredient_cost_snapshots (
+CREATE TABLE IF NOT EXISTS menu_ingredient_cost_snapshots (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     org_id BIGINT UNSIGNED NOT NULL,
     menu_id BIGINT UNSIGNED NOT NULL,
@@ -246,7 +243,7 @@ CREATE TABLE menu_ingredient_cost_snapshots (
     CONSTRAINT fk_menu_ing_snapshots_uom FOREIGN KEY (base_uom_id) REFERENCES uoms(id)
 ) ENGINE=InnoDB;
 
-CREATE TABLE cost_imports (
+CREATE TABLE IF NOT EXISTS cost_imports (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     org_id BIGINT UNSIGNED NOT NULL,
     uploaded_by_user_id BIGINT UNSIGNED NOT NULL,
@@ -258,7 +255,7 @@ CREATE TABLE cost_imports (
     CONSTRAINT fk_cost_imports_user FOREIGN KEY (uploaded_by_user_id) REFERENCES users(id)
 ) ENGINE=InnoDB;
 
-CREATE TABLE cost_import_rows (
+CREATE TABLE IF NOT EXISTS cost_import_rows (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     import_id BIGINT UNSIGNED NOT NULL,
     org_id BIGINT UNSIGNED NOT NULL,
