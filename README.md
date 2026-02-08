@@ -32,6 +32,18 @@
 - All records are scoped to `org_id` for multi-tenancy.
 - CSRF protection is enforced for all POST/PUT/PATCH/DELETE requests.
 
+## Web Server Rewrites
+### Apache (mod_rewrite)
+Ensure `mod_rewrite` is enabled and overrides are allowed for the `public/` directory (for example, `AllowOverride All`). The included `public/.htaccess` will route all non-file/non-directory requests to `public/index.php` so paths like `/login` reach the proper controller.
+
+### Nginx
+Use `public/` as the document root and add a `try_files` rule so missing paths are routed to `index.php`:
+```nginx
+location / {
+    try_files $uri /index.php?$query_string;
+}
+```
+
 ## Bulk Cost Import (CSV)
 1. Go to **Cost Imports** → **New Import**.
 2. Upload a CSV with headers (case-insensitive):
