@@ -9,7 +9,7 @@ class MenuGroup
     public static function create(PDO $pdo, int $orgId, int $actorUserId, int $menuId, array $payload): array
     {
         $stmt = $pdo->prepare(
-            'INSERT INTO menu_groups (org_id, menu_id, name, uptake_pct, portion, waste_pct, sort_order, created_at)
+            'INSERT INTO menu_groups (org_id, menu_id, name, uptake_pct, `portion`, waste_pct, sort_order, created_at)
              VALUES (:org_id, :menu_id, :name, :uptake_pct, :portion, :waste_pct, :sort_order, NOW())'
         );
         $stmt->execute([
@@ -36,7 +36,7 @@ class MenuGroup
             'UPDATE menu_groups
              SET name = :name,
                  uptake_pct = :uptake_pct,
-                 portion = :portion,
+                 `portion` = :portion,
                  waste_pct = :waste_pct,
                  sort_order = :sort_order,
                  updated_at = NOW()
@@ -69,7 +69,7 @@ class MenuGroup
     public static function findById(PDO $pdo, int $orgId, int $id): ?array
     {
         $stmt = $pdo->prepare(
-            'SELECT id, org_id, menu_id, name, uptake_pct, portion, waste_pct, sort_order, created_at, updated_at
+            'SELECT id, org_id, menu_id, name, uptake_pct, `portion`, waste_pct, sort_order, created_at, updated_at
              FROM menu_groups WHERE org_id = :org_id AND id = :id'
         );
         $stmt->execute(['org_id' => $orgId, 'id' => $id]);
@@ -80,7 +80,7 @@ class MenuGroup
     public static function listByMenu(PDO $pdo, int $orgId, int $menuId): array
     {
         $stmt = $pdo->prepare(
-            'SELECT id, menu_id, name, uptake_pct, portion, waste_pct, sort_order, created_at, updated_at
+            'SELECT id, menu_id, name, uptake_pct, `portion`, waste_pct, sort_order, created_at, updated_at
              FROM menu_groups
              WHERE org_id = :org_id AND menu_id = :menu_id
              ORDER BY sort_order ASC, id ASC'

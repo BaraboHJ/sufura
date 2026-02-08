@@ -11,11 +11,12 @@
    - Open `config/config.php` and update the database credentials for your hosting account.
 
 3. **Create database**
-   - In your hosting control panel (e.g., cPanel), create a MySQL database and user, then grant the user full privileges to the database.
+   - In your hosting control panel (e.g., cPanel), create a MariaDB database and user, then grant the user full privileges to the database.
 
 4. **Import schema + seed**
    - Open phpMyAdmin (or your host’s database tool).
-   - Import the SQL file at `sql/schema.sql`, then import `sql/seed.sql`.
+   - Import `sql/001_init.sql`, then import `sql/002_seed.sql`.
+   - The schema is compatible with MariaDB 10.4+ (including 10.11).
 
 5. **Visit the site**
    - Navigate to your domain (e.g., `https://your-domain.com`).
