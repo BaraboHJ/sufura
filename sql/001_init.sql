@@ -70,19 +70,22 @@ CREATE TABLE ingredients (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     org_id BIGINT UNSIGNED NOT NULL,
     name VARCHAR(255) NOT NULL,
-    base_uom_id BIGINT UNSIGNED NOT NULL,
+    uom_set_id BIGINT UNSIGNED NOT NULL,
+    notes TEXT NULL,
+    active TINYINT(1) NOT NULL DEFAULT 1,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NULL DEFAULT NULL,
     INDEX idx_ingredients_org (org_id),
+    UNIQUE KEY uniq_ingredients_org_name (org_id, name),
     CONSTRAINT fk_ingredients_org FOREIGN KEY (org_id) REFERENCES organizations(id),
-    CONSTRAINT fk_ingredients_uom FOREIGN KEY (base_uom_id) REFERENCES uoms(id)
+    CONSTRAINT fk_ingredients_uom_set FOREIGN KEY (uom_set_id) REFERENCES uom_sets(id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE ingredient_costs (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     org_id BIGINT UNSIGNED NOT NULL,
     ingredient_id BIGINT UNSIGNED NOT NULL,
-    cost_per_base_minor INT NOT NULL,
+    cost_per_base_x10000 INT NOT NULL,
     currency CHAR(3) NOT NULL,
     effective_at DATETIME NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -205,7 +208,7 @@ CREATE TABLE menu_ingredient_cost_snapshots (
     menu_id BIGINT UNSIGNED NOT NULL,
     ingredient_id BIGINT UNSIGNED NOT NULL,
     ingredient_cost_id BIGINT UNSIGNED NOT NULL,
-    cost_per_base_minor INT NOT NULL,
+    cost_per_base_x10000 INT NOT NULL,
     base_uom_id BIGINT UNSIGNED NOT NULL,
     currency CHAR(3) NOT NULL,
     captured_at DATETIME NOT NULL,
@@ -242,7 +245,7 @@ CREATE TABLE cost_import_rows (
     total_cost_minor INT NULL,
     parse_status ENUM('pending','matched','error') NOT NULL DEFAULT 'pending',
     error_message VARCHAR(255) NULL,
-    computed_cost_per_base_minor INT NULL,
+    computed_cost_per_base_x10000 INT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_cost_import_rows_import (import_id),
     INDEX idx_cost_import_rows_org (org_id),
