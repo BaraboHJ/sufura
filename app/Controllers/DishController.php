@@ -165,6 +165,43 @@ class DishController
         exit;
     }
 
+    public function delete(array $params): void
+    {
+        Auth::requireRole(['admin']);
+        if (!Csrf::validate($_POST['csrf_token'] ?? null)) {
+            http_response_code(403);
+            echo 'Invalid CSRF token.';
+            return;
+        }
+
+        $orgId = Auth::currentOrgId();
+        $actor = Auth::currentUser();
+        $dishId = isset($params['id']) ? (int) $params['id'] : 0;
+        $dish = Dish::findById($this->pdo, $orgId, $dishId);
+
+        if (!$dish) {
+            $_SESSION['flash_error'] = 'Dish not found.';
+            header('Location: /dishes');
+            exit;
+        }
+
+        if (Dish::hasMenuItems($this->pdo, $orgId, $dishId) || Dish::hasMenuSnapshots($this->pdo, $orgId, $dishId)) {
+            $_SESSION['flash_error'] = 'Dish cannot be deleted because it is used in menus or menu snapshots.';
+            header('Location: /dishes/' . $dishId);
+            exit;
+        }
+
+        $lines = DishLine::listByDish($this->pdo, $orgId, $dishId);
+        foreach ($lines as $line) {
+            DishLine::delete($this->pdo, $orgId, $actor['id'] ?? 0, (int) $line['id']);
+        }
+
+        Dish::delete($this->pdo, $orgId, $actor['id'] ?? 0, $dishId);
+        $_SESSION['flash_success'] = 'Dish deleted.';
+        header('Location: /dishes');
+        exit;
+    }
+
     public function addLine(array $params): void
     {
         Auth::requireRole(['admin', 'editor']);

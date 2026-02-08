@@ -1,4 +1,5 @@
 <?php
+use App\Core\Auth;
 use App\Core\Csrf;
 
 function format_cost_per_base(?int $costX10000, string $currency): string
@@ -17,6 +18,7 @@ $statusLabels = [
 ];
 $statusConfig = $statusLabels[$status] ?? $statusLabels['missing'];
 $csrfToken = Csrf::token();
+$user = Auth::user();
 ?>
 <div class="d-flex justify-content-between align-items-start mb-4">
     <div>
@@ -27,6 +29,12 @@ $csrfToken = Csrf::token();
         <?php endif; ?>
     </div>
     <div class="d-flex gap-2">
+        <?php if ($user && ($user['role'] ?? '') === 'admin'): ?>
+            <form method="post" action="/ingredients/<?= (int) $ingredient['id'] ?>/delete" onsubmit="return confirm('Delete this ingredient? This cannot be undone.');">
+                <?= Csrf::input() ?>
+                <button class="btn btn-outline-danger" type="submit">Delete</button>
+            </form>
+        <?php endif; ?>
         <a class="btn btn-outline-secondary" href="/ingredients/<?= (int) $ingredient['id'] ?>/edit">Edit</a>
         <a class="btn btn-outline-secondary" href="/ingredients">Back</a>
     </div>

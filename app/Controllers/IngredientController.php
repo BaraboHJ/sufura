@@ -168,6 +168,42 @@ class IngredientController
         exit;
     }
 
+    public function delete(array $params): void
+    {
+        Auth::requireRole(['admin']);
+        if (!Csrf::validate($_POST['csrf_token'] ?? null)) {
+            http_response_code(403);
+            echo 'Invalid CSRF token.';
+            return;
+        }
+
+        $orgId = Auth::currentOrgId();
+        $actor = Auth::currentUser();
+        $ingredientId = isset($params['id']) ? (int) $params['id'] : 0;
+        $ingredient = Ingredient::findById($this->pdo, $orgId, $ingredientId);
+
+        if (!$ingredient) {
+            $_SESSION['flash_error'] = 'Ingredient not found.';
+            header('Location: /ingredients');
+            exit;
+        }
+
+        if (
+            Ingredient::hasDishLines($this->pdo, $orgId, $ingredientId)
+            || Ingredient::hasMenuSnapshots($this->pdo, $orgId, $ingredientId)
+            || Ingredient::hasCostImportRows($this->pdo, $orgId, $ingredientId)
+        ) {
+            $_SESSION['flash_error'] = 'Ingredient cannot be deleted because it is referenced by dishes, menus, or cost imports.';
+            header('Location: /ingredients/' . $ingredientId);
+            exit;
+        }
+
+        Ingredient::delete($this->pdo, $orgId, $actor['id'] ?? 0, $ingredientId);
+        $_SESSION['flash_success'] = 'Ingredient deleted.';
+        header('Location: /ingredients');
+        exit;
+    }
+
     public function addCost(array $params): void
     {
         Auth::requireRole(['admin', 'editor']);
