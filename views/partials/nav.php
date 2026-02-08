@@ -27,12 +27,18 @@ $user = Auth::user();
                 <?php if ($user): ?>
                     <li class="nav-item"><span class="navbar-text me-3">Hello, <?= htmlspecialchars($user['name'], ENT_QUOTES) ?></span></li>
                     <li class="nav-item">
+                        <button class="btn btn-outline-light btn-sm me-3" type="button" id="themeToggle">Light mode</button>
+                    </li>
+                    <li class="nav-item">
                         <form method="post" action="/logout" class="d-inline">
                             <?= Csrf::input() ?>
                             <button class="btn btn-link nav-link" type="submit">Logout</button>
                         </form>
                     </li>
                 <?php else: ?>
+                    <li class="nav-item">
+                        <button class="btn btn-outline-light btn-sm me-3" type="button" id="themeToggle">Light mode</button>
+                    </li>
                     <li class="nav-item"><a class="nav-link" href="/login">Login</a></li>
                 <?php endif; ?>
             </ul>
