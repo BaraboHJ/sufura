@@ -46,7 +46,7 @@ $statusLabels = [
 
         <div class="table-responsive">
             <table class="table table-striped align-middle">
-                <thead class="table-light">
+                <thead class="table-secondary">
                     <tr>
                         <th>Name</th>
                         <th>UoM Set</th>

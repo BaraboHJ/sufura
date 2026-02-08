@@ -6,7 +6,7 @@ unset($_SESSION['form_values']);
 ?>
 <div class="row justify-content-center">
     <div class="col-md-5">
-        <div class="bg-white p-4 rounded shadow-sm">
+        <div class="bg-body-secondary p-4 rounded shadow-sm">
             <h1 class="h5 mb-3">Sign in</h1>
             <form method="post" action="/login">
                 <?= Csrf::input() ?>

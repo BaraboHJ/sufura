@@ -7,7 +7,7 @@ $errors = $summary['errors'] ?? [];
 ?>
 <div class="row justify-content-center">
     <div class="col-lg-8">
-        <div class="bg-white p-4 rounded shadow-sm">
+        <div class="bg-body-secondary p-4 rounded shadow-sm">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <div>
                     <h1 class="h4 mb-0">Bulk Upload Dishes</h1>

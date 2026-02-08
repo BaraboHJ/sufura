@@ -13,7 +13,7 @@ use App\Core\Csrf;
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-striped mb-0 align-middle">
-                <thead class="table-light">
+                <thead class="table-secondary">
                     <tr>
                         <th>Name</th>
                         <th>Email</th>
