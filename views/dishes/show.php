@@ -95,13 +95,13 @@ $knownCount = (int) ($summary['lines_count'] ?? 0) - (int) ($summary['unknown_co
 <?php endif; ?>
 
 <div class="card shadow-sm">
-    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <div class="card-header bg-body-secondary d-flex justify-content-between align-items-center">
         <h2 class="h6 mb-0">Cost breakdown</h2>
         <a class="btn btn-sm btn-outline-secondary" href="/api/dishes/<?= (int) $dish['id'] ?>/cost_breakdown">Download JSON</a>
     </div>
     <div class="table-responsive">
         <table class="table table-striped mb-0">
-            <thead class="table-light">
+            <thead class="table-secondary">
                 <tr>
                     <th>Ingredient</th>
                     <th>Qty</th>

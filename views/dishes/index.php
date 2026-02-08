@@ -28,7 +28,7 @@ $statusLabels = [
 <div class="card shadow-sm">
     <div class="table-responsive">
         <table class="table table-striped mb-0">
-            <thead class="table-light">
+            <thead class="table-secondary">
                 <tr>
                     <th>Name</th>
                     <th>Yield servings</th>

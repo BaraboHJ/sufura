@@ -52,7 +52,7 @@ $knownCount = (int) ($summary['lines_count'] ?? 0) - (int) ($summary['unknown_co
 
 <div class="row g-4">
     <div class="col-lg-5">
-        <div class="bg-white p-4 rounded shadow-sm mb-4">
+        <div class="bg-body-secondary p-4 rounded shadow-sm mb-4">
             <h2 class="h6">Dish details</h2>
             <form method="post" action="/dishes/<?= (int) $dish['id'] ?>/update">
                 <?= Csrf::input() ?>
@@ -108,7 +108,7 @@ $knownCount = (int) ($summary['lines_count'] ?? 0) - (int) ($summary['unknown_co
 
     <div class="col-lg-7">
         <div class="card shadow-sm">
-            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <div class="card-header bg-body-secondary d-flex justify-content-between align-items-center">
                 <div>
                     <h2 class="h6 mb-1">Recipe builder</h2>
                     <div class="text-muted small">Search ingredients, set quantities, and update costs fast.</div>
@@ -117,7 +117,7 @@ $knownCount = (int) ($summary['lines_count'] ?? 0) - (int) ($summary['unknown_co
             </div>
             <div class="table-responsive">
                 <table class="table align-middle mb-0" id="recipe-table" data-dish-id="<?= (int) $dish['id'] ?>" data-csrf="<?= htmlspecialchars($csrfToken, ENT_QUOTES) ?>">
-                    <thead class="table-light">
+                    <thead class="table-secondary">
                         <tr>
                             <th style="width: 35%">Ingredient</th>
                             <th style="width: 15%">Qty</th>
@@ -207,11 +207,11 @@ $knownCount = (int) ($summary['lines_count'] ?? 0) - (int) ($summary['unknown_co
 </div>
 
 <script>
-(() => {
+document.addEventListener('DOMContentLoaded', () => {
     const table = document.getElementById('recipe-table');
     const addLineBtn = document.getElementById('add-line');
     const modalEl = document.getElementById('ingredientModal');
-    const modal = modalEl ? new bootstrap.Modal(modalEl) : null;
+    const modal = modalEl && window.bootstrap ? new window.bootstrap.Modal(modalEl) : null;
     const modalForm = document.getElementById('ingredient-create-form');
     const modalError = document.getElementById('ingredient-error');
     const statusBadge = document.getElementById('dish-status');
@@ -423,7 +423,7 @@ $knownCount = (int) ($summary['lines_count'] ?? 0) - (int) ($summary['unknown_co
                 modalForm.uom_set_id.value = '';
                 modalError.classList.add('d-none');
                 modalError.textContent = '';
-                modal.show();
+                modal?.show();
                 dropdown.classList.add('d-none');
             });
             dropdown.appendChild(createBtn);
@@ -577,11 +577,11 @@ $knownCount = (int) ($summary['lines_count'] ?? 0) - (int) ($summary['unknown_co
                     uom_set_id: data.uom_set_id,
                 });
             }
-            modal.hide();
+            modal?.hide();
         } catch (error) {
             modalError.textContent = error.message;
             modalError.classList.remove('d-none');
         }
     });
-})();
+});
 </script>

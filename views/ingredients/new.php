@@ -7,7 +7,7 @@ unset($_SESSION['form_errors'], $_SESSION['form_values']);
 ?>
 <div class="row justify-content-center">
     <div class="col-lg-7">
-        <div class="bg-white p-4 rounded shadow-sm">
+        <div class="bg-body-secondary p-4 rounded shadow-sm">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <div>
                     <h1 class="h4 mb-0">New Ingredient</h1>

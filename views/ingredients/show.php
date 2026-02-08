@@ -72,12 +72,12 @@ $csrfToken = Csrf::token();
 </div>
 
 <div class="card shadow-sm">
-    <div class="card-header bg-white">
+    <div class="card-header bg-body-secondary">
         <h2 class="h6 mb-0">Cost History</h2>
     </div>
     <div class="table-responsive">
         <table class="table table-striped mb-0">
-            <thead class="table-light">
+            <thead class="table-secondary">
                 <tr>
                     <th>Effective Date</th>
                     <th>Cost per <?= htmlspecialchars($ingredient['base_uom_symbol'], ENT_QUOTES) ?></th>
