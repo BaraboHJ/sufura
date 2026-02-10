@@ -196,12 +196,31 @@ class BulkImportController
             'description',
             'yield_servings',
             'active',
-            'ingredient_name',
-            'ingredient_quantity',
-            'ingredient_uom',
+            'ingredient_name_1',
+            'ingredient_quantity_1',
+            'ingredient_uom_1',
+            'ingredient_name_2',
+            'ingredient_quantity_2',
+            'ingredient_uom_2',
+            'ingredient_name_3',
+            'ingredient_quantity_3',
+            'ingredient_uom_3',
         ]);
-        fputcsv($output, ['Example Dish', 'Optional description', '10', '1', 'Flour', '2.5', 'kg']);
-        fputcsv($output, ['Example Dish', '', '', '', 'Salt', '0.02', 'kg']);
+        fputcsv($output, [
+            'Example Dish',
+            'Optional description',
+            '10',
+            '1',
+            'Flour',
+            '2.5',
+            'kg',
+            'Salt',
+            '0.02',
+            'kg',
+            'Sugar',
+            '0.5',
+            'kg',
+        ]);
         fclose($output);
     }
 
@@ -253,19 +272,17 @@ class BulkImportController
 
         $columnMap = $this->mapCsvHeader($header);
         $columnMap = $this->applyColumnAliases($columnMap, [
-            'ingredient_name' => ['ingredient'],
-            'ingredient_quantity' => ['ingredient_qty', 'qty', 'quantity'],
-            'ingredient_uom' => ['ingredient_unit', 'ingredient_units', 'unit', 'uom'],
+            'ingredient_name_1' => ['ingredient_name', 'ingredient'],
+            'ingredient_quantity_1' => ['ingredient_quantity', 'ingredient_qty', 'qty', 'quantity'],
+            'ingredient_uom_1' => ['ingredient_uom', 'ingredient_unit', 'ingredient_units', 'unit', 'uom'],
         ]);
+        $ingredientColumns = $this->extractIngredientColumns($columnMap);
         $errors = [];
         if (!isset($columnMap['name'])) {
             $errors[] = 'Missing required column: name';
         }
-        if (!isset($columnMap['ingredient_name'])) {
-            $errors[] = 'Missing required column: ingredient_name';
-        }
-        if (!isset($columnMap['ingredient_quantity'])) {
-            $errors[] = 'Missing required column: ingredient_quantity';
+        if (empty($ingredientColumns)) {
+            $errors[] = 'Missing ingredient columns. Use ingredient_name_1 and ingredient_quantity_1 at minimum.';
         }
 
         if (!empty($errors)) {
@@ -298,9 +315,7 @@ class BulkImportController
             $description = trim((string) ($this->getColumnValue($data, $columnMap, 'description') ?? ''));
             $yieldRaw = $this->getColumnValue($data, $columnMap, 'yield_servings');
             $activeRaw = $this->getColumnValue($data, $columnMap, 'active');
-            $ingredientNameRaw = trim((string) ($data[$columnMap['ingredient_name']] ?? ''));
-            $ingredientQuantityRaw = $data[$columnMap['ingredient_quantity']] ?? null;
-            $ingredientUomRaw = trim((string) ($this->getColumnValue($data, $columnMap, 'ingredient_uom') ?? ''));
+            $ingredientEntries = $this->extractIngredientEntries($data, $ingredientColumns);
 
             if ($name === '') {
                 $errors[] = "Row {$rowNum}: Name is required.";
@@ -308,22 +323,8 @@ class BulkImportController
                 continue;
             }
 
-            if ($ingredientNameRaw === '') {
-                $errors[] = "Row {$rowNum}: Ingredient name is required.";
-                $skipped++;
-                continue;
-            }
-
-            $ingredient = $ingredientMap[$this->normalizeName($ingredientNameRaw)] ?? null;
-            if (!$ingredient) {
-                $errors[] = "Row {$rowNum}: Ingredient \"{$ingredientNameRaw}\" not found.";
-                $skipped++;
-                continue;
-            }
-
-            $ingredientQuantity = $this->parseDecimal($ingredientQuantityRaw);
-            if ($ingredientQuantity === null || $ingredientQuantity <= 0) {
-                $errors[] = "Row {$rowNum}: Ingredient quantity must be a positive number.";
+            if (empty($ingredientEntries)) {
+                $errors[] = "Row {$rowNum}: At least one ingredient is required.";
                 $skipped++;
                 continue;
             }
@@ -351,25 +352,54 @@ class BulkImportController
             }
 
             $dishId = $dishesByName[$normalizedDishName];
-            $uomId = $ingredient['base_uom_id'];
-            if ($ingredientUomRaw !== '') {
-                $uom = $this->findUomBySymbol($uomMap, (int) $ingredient['uom_set_id'], $ingredientUomRaw);
-                if (!$uom) {
-                    $errors[] = "Row {$rowNum}: UoM \"{$ingredientUomRaw}\" not found for ingredient \"{$ingredientNameRaw}\".";
-                    $skipped++;
+            $rowHadError = false;
+            foreach ($ingredientEntries as $entry) {
+                $ingredientNameRaw = trim((string) ($entry['name'] ?? ''));
+                if ($ingredientNameRaw === '') {
+                    $errors[] = "Row {$rowNum}: Ingredient name is required for each ingredient column.";
+                    $rowHadError = true;
                     continue;
                 }
-                $uomId = (int) $uom['id'];
+
+                $ingredient = $ingredientMap[$this->normalizeName($ingredientNameRaw)] ?? null;
+                if (!$ingredient) {
+                    $errors[] = "Row {$rowNum}: Ingredient \"{$ingredientNameRaw}\" not found.";
+                    $rowHadError = true;
+                    continue;
+                }
+
+                $ingredientQuantity = $this->parseDecimal($entry['quantity'] ?? null);
+                if ($ingredientQuantity === null || $ingredientQuantity <= 0) {
+                    $errors[] = "Row {$rowNum}: Ingredient quantity for \"{$ingredientNameRaw}\" must be a positive number.";
+                    $rowHadError = true;
+                    continue;
+                }
+
+                $uomId = $ingredient['base_uom_id'];
+                $ingredientUomRaw = trim((string) ($entry['uom'] ?? ''));
+                if ($ingredientUomRaw !== '') {
+                    $uom = $this->findUomBySymbol($uomMap, (int) $ingredient['uom_set_id'], $ingredientUomRaw);
+                    if (!$uom) {
+                        $errors[] = "Row {$rowNum}: UoM \"{$ingredientUomRaw}\" not found for ingredient \"{$ingredientNameRaw}\".";
+                        $rowHadError = true;
+                        continue;
+                    }
+                    $uomId = (int) $uom['id'];
+                }
+
+                $dishLineCounts[$dishId] = ($dishLineCounts[$dishId] ?? 0) + 1;
+                DishLine::create($this->pdo, $orgId, $actor['id'] ?? 0, $dishId, [
+                    'ingredient_id' => (int) $ingredient['id'],
+                    'quantity' => $ingredientQuantity,
+                    'uom_id' => $uomId,
+                    'sort_order' => $dishLineCounts[$dishId],
+                ]);
+                $createdLines++;
             }
 
-            $dishLineCounts[$dishId] = ($dishLineCounts[$dishId] ?? 0) + 1;
-            DishLine::create($this->pdo, $orgId, $actor['id'] ?? 0, $dishId, [
-                'ingredient_id' => (int) $ingredient['id'],
-                'quantity' => $ingredientQuantity,
-                'uom_id' => $uomId,
-                'sort_order' => $dishLineCounts[$dishId],
-            ]);
-            $createdLines++;
+            if ($rowHadError) {
+                $skipped++;
+            }
         }
 
         fclose($handle);
@@ -499,6 +529,51 @@ class BulkImportController
     {
         $key = strtolower(trim($symbol));
         return $map[$uomSetId][$key] ?? null;
+    }
+
+    private function extractIngredientColumns(array $columnMap): array
+    {
+        $columns = [];
+        foreach ($columnMap as $key => $index) {
+            if (preg_match('/^ingredient_name_(\d+)$/', $key, $matches)) {
+                $n = (int) $matches[1];
+                if (isset($columnMap["ingredient_quantity_{$n}"])) {
+                    $columns[] = [
+                        'name' => $index,
+                        'quantity' => $columnMap["ingredient_quantity_{$n}"],
+                        'uom' => $columnMap["ingredient_uom_{$n}"] ?? null,
+                    ];
+                }
+            }
+        }
+
+        usort($columns, function (array $a, array $b): int {
+            return $a['name'] <=> $b['name'];
+        });
+
+        return $columns;
+    }
+
+    private function extractIngredientEntries(array $row, array $columns): array
+    {
+        $entries = [];
+        foreach ($columns as $column) {
+            $name = trim((string) ($row[$column['name']] ?? ''));
+            $quantity = $row[$column['quantity']] ?? null;
+            $uom = $column['uom'] === null ? '' : trim((string) ($row[$column['uom']] ?? ''));
+
+            if ($name === '' && trim((string) $quantity) === '') {
+                continue;
+            }
+
+            $entries[] = [
+                'name' => $name,
+                'quantity' => $quantity,
+                'uom' => $uom,
+            ];
+        }
+
+        return $entries;
     }
 
     private function parseDecimal($value): ?float

@@ -9,6 +9,17 @@ use App\Core\Csrf;
     <a class="btn btn-primary" href="/admin/users/new">Add User</a>
 </div>
 
+
+<div class="alert alert-warning d-flex justify-content-between align-items-center">
+    <div>
+        <strong>Danger zone:</strong> Reset all ingredient, dish, menu, and cost data for this organization.
+    </div>
+    <form method="post" action="/admin/reset-data" class="m-0" onsubmit="return confirm('This will permanently delete all ingredients, dishes, menus, and cost data. Continue?')">
+        <?= Csrf::input() ?>
+        <button class="btn btn-sm btn-danger" type="submit">Reset data</button>
+    </form>
+</div>
+
 <div class="card shadow-sm">
     <div class="card-body p-0">
         <div class="table-responsive">
