@@ -58,18 +58,19 @@ $errors = $summary['errors'] ?? [];
                 <div class="fw-semibold">Required columns</div>
                 <ul class="mb-0 text-muted small">
                     <li><code>name</code></li>
-                    <li><code>ingredient_name</code></li>
-                    <li><code>ingredient_quantity</code></li>
+                    <li><code>ingredient_name_1</code></li>
+                    <li><code>ingredient_quantity_1</code></li>
                 </ul>
                 <div class="fw-semibold mt-3">Optional columns</div>
                 <ul class="mb-0 text-muted small">
                     <li><code>description</code></li>
                     <li><code>yield_servings</code> (defaults to 1)</li>
                     <li><code>active</code> (1/0, yes/no, active/inactive)</li>
-                    <li><code>ingredient_uom</code> (defaults to ingredient base UoM)</li>
+                    <li><code>ingredient_uom_1</code> (defaults to ingredient base UoM)</li>
+                    <li>Additional ingredients: <code>ingredient_name_2</code>, <code>ingredient_quantity_2</code>, <code>ingredient_uom_2</code>, etc.</li>
                 </ul>
                 <div class="text-muted small mt-2">
-                    To add multiple ingredients for one dish, include multiple rows with the same dish name.
+                    Use one row per dish and add more ingredient columns (suffixes 2, 3, 4...) for extra ingredients.
                 </div>
             </div>
         </div>

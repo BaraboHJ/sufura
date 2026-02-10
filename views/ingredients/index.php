@@ -1,4 +1,6 @@
 <?php
+use App\Core\Csrf;
+
 function format_cost_per_base(?int $costX10000, string $currency, string $baseSymbol): string
 {
     if (!$costX10000) {
@@ -44,52 +46,77 @@ $statusLabels = [
             <a class="btn btn-sm <?= $statusFilter === 'ok' ? 'btn-primary' : 'btn-outline-primary' ?>" href="/ingredients?status=ok">OK</a>
         </div>
 
-        <div class="table-responsive">
-            <table class="table table-striped align-middle">
-                <thead class="table-secondary">
-                    <tr>
-                        <th>Name</th>
-                        <th>UoM Set</th>
-                        <th>Status</th>
-                        <th>Current Cost</th>
-                        <th>Last Updated</th>
-                        <th>Active</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (empty($ingredients)): ?>
+        <form method="post" action="/ingredients/bulk-delete" id="ingredient-bulk-delete-form">
+            <?= Csrf::input() ?>
+            <?php if ($canBulkDelete): ?>
+                <div class="mb-3 d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-danger" type="submit" onclick="return confirm('Delete selected ingredients? Referenced ingredients will be skipped.')">Delete selected</button>
+                </div>
+            <?php endif; ?>
+            <div class="table-responsive">
+                <table class="table table-striped align-middle">
+                    <thead class="table-secondary">
                         <tr>
-                            <td colspan="7" class="text-center text-muted py-4">No ingredients found.</td>
+                            <?php if ($canBulkDelete): ?>
+                                <th><input type="checkbox" id="ingredient-select-all"></th>
+                            <?php endif; ?>
+                            <th>Name</th>
+                            <th>UoM Set</th>
+                            <th>Status</th>
+                            <th>Current Cost</th>
+                            <th>Last Updated</th>
+                            <th>Active</th>
+                            <th></th>
                         </tr>
-                    <?php else: ?>
-                        <?php foreach ($ingredients as $ingredient): ?>
-                            <?php
-                            $status = $ingredient['status'] ?? 'missing';
-                            $statusConfig = $statusLabels[$status] ?? $statusLabels['missing'];
-                            ?>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($ingredients)): ?>
                             <tr>
-                                <td>
-                                    <a class="text-decoration-none" href="/ingredients/<?= (int) $ingredient['id'] ?>">
-                                        <?= htmlspecialchars($ingredient['name'], ENT_QUOTES) ?>
-                                    </a>
-                                </td>
-                                <td>
-                                    <?= htmlspecialchars($ingredient['uom_set_name'], ENT_QUOTES) ?>
-                                    <div class="text-muted small">Base: <?= htmlspecialchars($ingredient['base_uom_symbol'], ENT_QUOTES) ?></div>
-                                </td>
-                                <td><span class="badge <?= $statusConfig['class'] ?>"><?= $statusConfig['label'] ?></span></td>
-                                <td><?= format_cost_per_base($ingredient['cost_per_base_x10000'] ?? null, $currency, $ingredient['base_uom_symbol']) ?></td>
-                                <td><?= $ingredient['cost_effective_at'] ? htmlspecialchars($ingredient['cost_effective_at'], ENT_QUOTES) : '—' ?></td>
-                                <td><?= (int) $ingredient['active'] === 1 ? 'Yes' : 'No' ?></td>
-                                <td class="text-end">
-                                    <a class="btn btn-sm btn-outline-secondary" href="/ingredients/<?= (int) $ingredient['id'] ?>/edit">Edit</a>
-                                </td>
+                                <td colspan="<?= $canBulkDelete ? '8' : '7' ?>" class="text-center text-muted py-4">No ingredients found.</td>
                             </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-        </div>
+                        <?php else: ?>
+                            <?php foreach ($ingredients as $ingredient): ?>
+                                <?php
+                                $status = $ingredient['status'] ?? 'missing';
+                                $statusConfig = $statusLabels[$status] ?? $statusLabels['missing'];
+                                ?>
+                                <tr>
+                                    <?php if ($canBulkDelete): ?>
+                                        <td><input type="checkbox" name="selected_ids[]" value="<?= (int) $ingredient['id'] ?>" class="ingredient-select-row"></td>
+                                    <?php endif; ?>
+                                    <td>
+                                        <a class="text-decoration-none" href="/ingredients/<?= (int) $ingredient['id'] ?>">
+                                            <?= htmlspecialchars($ingredient['name'], ENT_QUOTES) ?>
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <?= htmlspecialchars($ingredient['uom_set_name'], ENT_QUOTES) ?>
+                                        <div class="text-muted small">Base: <?= htmlspecialchars($ingredient['base_uom_symbol'], ENT_QUOTES) ?></div>
+                                    </td>
+                                    <td><span class="badge <?= $statusConfig['class'] ?>"><?= $statusConfig['label'] ?></span></td>
+                                    <td><?= format_cost_per_base($ingredient['cost_per_base_x10000'] ?? null, $currency, $ingredient['base_uom_symbol']) ?></td>
+                                    <td><?= $ingredient['cost_effective_at'] ? htmlspecialchars($ingredient['cost_effective_at'], ENT_QUOTES) : '—' ?></td>
+                                    <td><?= (int) $ingredient['active'] === 1 ? 'Yes' : 'No' ?></td>
+                                    <td class="text-end">
+                                        <a class="btn btn-sm btn-outline-secondary" href="/ingredients/<?= (int) $ingredient['id'] ?>/edit">Edit</a>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </form>
     </div>
 </div>
+
+<?php if ($canBulkDelete): ?>
+<script>
+const ingredientSelectAll = document.getElementById('ingredient-select-all');
+ingredientSelectAll?.addEventListener('change', () => {
+    document.querySelectorAll('.ingredient-select-row').forEach((checkbox) => {
+        checkbox.checked = ingredientSelectAll.checked;
+    });
+});
+</script>
+<?php endif; ?>

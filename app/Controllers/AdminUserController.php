@@ -129,4 +129,50 @@ class AdminUserController
         header('Location: /admin/users');
         exit;
     }
+    public function resetData(): void
+    {
+        Auth::requireRole(['admin']);
+        if (!Csrf::validate($_POST['csrf_token'] ?? null)) {
+            http_response_code(403);
+            echo 'Invalid CSRF token.';
+            return;
+        }
+
+        $orgId = Auth::currentOrgId();
+
+        $this->pdo->beginTransaction();
+        try {
+            $tables = [
+                'menu_item_cost_snapshots',
+                'menu_ingredient_cost_snapshots',
+                'menu_cost_snapshots',
+                'menu_items',
+                'menu_groups',
+                'menus',
+                'dish_lines',
+                'dishes',
+                'cost_import_rows',
+                'cost_imports',
+                'ingredient_costs',
+                'ingredients',
+            ];
+
+            foreach ($tables as $table) {
+                $stmt = $this->pdo->prepare("DELETE FROM {$table} WHERE org_id = :org_id");
+                $stmt->execute(['org_id' => $orgId]);
+            }
+
+            $this->pdo->commit();
+            $_SESSION['flash_success'] = 'All ingredient, dish, menu, and cost data has been reset.';
+        } catch (\Throwable $e) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            $_SESSION['flash_error'] = 'Could not reset data. Please try again.';
+        }
+
+        header('Location: /admin/users');
+        exit;
+    }
+
 }

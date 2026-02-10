@@ -22,6 +22,8 @@ class DishController
     public function index(): void
     {
         Auth::requireLogin();
+        $user = Auth::currentUser();
+        $canBulkDelete = ($user['role'] ?? '') === 'admin';
         $orgId = Auth::currentOrgId();
         $org = $this->loadOrg($orgId);
         $currency = $org['default_currency'] ?? 'USD';
@@ -198,6 +200,64 @@ class DishController
 
         Dish::delete($this->pdo, $orgId, $actor['id'] ?? 0, $dishId);
         $_SESSION['flash_success'] = 'Dish deleted.';
+        header('Location: /dishes');
+        exit;
+    }
+
+
+    public function bulkDelete(): void
+    {
+        Auth::requireRole(['admin']);
+        if (!Csrf::validate($_POST['csrf_token'] ?? null)) {
+            http_response_code(403);
+            echo 'Invalid CSRF token.';
+            return;
+        }
+
+        $orgId = Auth::currentOrgId();
+        $actor = Auth::currentUser();
+        $selectedIds = $_POST['selected_ids'] ?? [];
+        $dishIds = is_array($selectedIds) ? array_values(array_unique(array_map('intval', $selectedIds))) : [];
+        $dishIds = array_values(array_filter($dishIds, function (int $id): bool {
+            return $id > 0;
+        }));
+
+        if (empty($dishIds)) {
+            $_SESSION['flash_error'] = 'Select at least one dish to delete.';
+            header('Location: /dishes');
+            exit;
+        }
+
+        $deleted = 0;
+        $skipped = 0;
+        foreach ($dishIds as $dishId) {
+            $dish = Dish::findById($this->pdo, $orgId, $dishId);
+            if (!$dish) {
+                $skipped++;
+                continue;
+            }
+
+            if (Dish::hasMenuItems($this->pdo, $orgId, $dishId) || Dish::hasMenuSnapshots($this->pdo, $orgId, $dishId)) {
+                $skipped++;
+                continue;
+            }
+
+            $lines = DishLine::listByDish($this->pdo, $orgId, $dishId);
+            foreach ($lines as $line) {
+                DishLine::delete($this->pdo, $orgId, $actor['id'] ?? 0, (int) $line['id']);
+            }
+
+            Dish::delete($this->pdo, $orgId, $actor['id'] ?? 0, $dishId);
+            $deleted++;
+        }
+
+        if ($deleted > 0) {
+            $_SESSION['flash_success'] = "Deleted {$deleted} dish(es).";
+        }
+        if ($skipped > 0) {
+            $_SESSION['flash_error'] = "Skipped {$skipped} dish(es) because they are referenced or missing.";
+        }
+
         header('Location: /dishes');
         exit;
     }

@@ -25,6 +25,8 @@ class MenuController
     public function index(): void
     {
         Auth::requireLogin();
+        $user = Auth::currentUser();
+        $canBulkDelete = ($user['role'] ?? '') === 'admin';
         $orgId = Auth::currentOrgId();
         $org = $this->loadOrg($orgId);
         $menus = Menu::listByOrg($this->pdo, $orgId);
@@ -294,6 +296,71 @@ class MenuController
             http_response_code(404);
         }
         echo json_encode($payload);
+    }
+
+
+    public function delete(array $params): void
+    {
+        Auth::requireRole(['admin']);
+        if (!Csrf::validate($_POST['csrf_token'] ?? null)) {
+            http_response_code(403);
+            echo 'Invalid CSRF token.';
+            return;
+        }
+
+        $orgId = Auth::currentOrgId();
+        $actor = Auth::currentUser();
+        $menuId = isset($params['id']) ? (int) $params['id'] : 0;
+        $menu = Menu::findById($this->pdo, $orgId, $menuId);
+
+        if (!$menu) {
+            $_SESSION['flash_error'] = 'Menu not found.';
+            header('Location: /menus');
+            exit;
+        }
+
+        $this->deleteMenuWithDependencies($orgId, $actor['id'] ?? 0, $menuId);
+        $_SESSION['flash_success'] = 'Menu deleted.';
+        header('Location: /menus');
+        exit;
+    }
+
+    public function bulkDelete(): void
+    {
+        Auth::requireRole(['admin']);
+        if (!Csrf::validate($_POST['csrf_token'] ?? null)) {
+            http_response_code(403);
+            echo 'Invalid CSRF token.';
+            return;
+        }
+
+        $orgId = Auth::currentOrgId();
+        $actor = Auth::currentUser();
+        $selectedIds = $_POST['selected_ids'] ?? [];
+        $menuIds = is_array($selectedIds) ? array_values(array_unique(array_map('intval', $selectedIds))) : [];
+        $menuIds = array_values(array_filter($menuIds, function (int $id): bool {
+            return $id > 0;
+        }));
+
+        if (empty($menuIds)) {
+            $_SESSION['flash_error'] = 'Select at least one menu to delete.';
+            header('Location: /menus');
+            exit;
+        }
+
+        $deleted = 0;
+        foreach ($menuIds as $menuId) {
+            $menu = Menu::findById($this->pdo, $orgId, $menuId);
+            if (!$menu) {
+                continue;
+            }
+            $this->deleteMenuWithDependencies($orgId, $actor['id'] ?? 0, $menuId);
+            $deleted++;
+        }
+
+        $_SESSION['flash_success'] = "Deleted {$deleted} menu(s).";
+        header('Location: /menus');
+        exit;
     }
 
     public function compute(array $params): void
@@ -886,6 +953,42 @@ class MenuController
         $stmt->execute(['org_id' => $orgId, 'ingredient_id' => $ingredientId]);
         $row = $stmt->fetch();
         return $row ?: null;
+    }
+
+
+    private function deleteMenuWithDependencies(int $orgId, int $actorUserId, int $menuId): void
+    {
+        $this->pdo->beginTransaction();
+        try {
+            $stmt = $this->pdo->prepare('DELETE FROM menu_item_cost_snapshots WHERE org_id = :org_id AND menu_id = :menu_id');
+            $stmt->execute(['org_id' => $orgId, 'menu_id' => $menuId]);
+
+            $stmt = $this->pdo->prepare('DELETE FROM menu_ingredient_cost_snapshots WHERE org_id = :org_id AND menu_id = :menu_id');
+            $stmt->execute(['org_id' => $orgId, 'menu_id' => $menuId]);
+
+            $stmt = $this->pdo->prepare('DELETE FROM menu_cost_snapshots WHERE org_id = :org_id AND menu_id = :menu_id');
+            $stmt->execute(['org_id' => $orgId, 'menu_id' => $menuId]);
+
+            $items = MenuItem::listByMenu($this->pdo, $orgId, $menuId);
+            foreach ($items as $item) {
+                MenuItem::delete($this->pdo, $orgId, $actorUserId, (int) $item['id']);
+            }
+
+            $groups = MenuGroup::listByMenu($this->pdo, $orgId, $menuId);
+            foreach ($groups as $group) {
+                MenuGroup::delete($this->pdo, $orgId, $actorUserId, (int) $group['id']);
+            }
+
+            $stmt = $this->pdo->prepare('DELETE FROM menus WHERE org_id = :org_id AND id = :id');
+            $stmt->execute(['org_id' => $orgId, 'id' => $menuId]);
+
+            $this->pdo->commit();
+        } catch (\Throwable $e) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            throw $e;
+        }
     }
 
     private function parseMenuIds(string $idsParam): array

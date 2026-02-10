@@ -19,6 +19,8 @@ class IngredientController
     public function index(): void
     {
         Auth::requireLogin();
+        $user = Auth::currentUser();
+        $canBulkDelete = ($user['role'] ?? '') === 'admin';
         $orgId = Auth::currentOrgId();
         $org = $this->loadOrg($orgId);
         $currency = $org['default_currency'] ?? 'USD';
@@ -200,6 +202,62 @@ class IngredientController
 
         Ingredient::delete($this->pdo, $orgId, $actor['id'] ?? 0, $ingredientId);
         $_SESSION['flash_success'] = 'Ingredient deleted.';
+        header('Location: /ingredients');
+        exit;
+    }
+
+    public function bulkDelete(): void
+    {
+        Auth::requireRole(['admin']);
+        if (!Csrf::validate($_POST['csrf_token'] ?? null)) {
+            http_response_code(403);
+            echo 'Invalid CSRF token.';
+            return;
+        }
+
+        $orgId = Auth::currentOrgId();
+        $actor = Auth::currentUser();
+        $selectedIds = $_POST['selected_ids'] ?? [];
+        $ingredientIds = is_array($selectedIds) ? array_values(array_unique(array_map('intval', $selectedIds))) : [];
+        $ingredientIds = array_values(array_filter($ingredientIds, function (int $id): bool {
+            return $id > 0;
+        }));
+
+        if (empty($ingredientIds)) {
+            $_SESSION['flash_error'] = 'Select at least one ingredient to delete.';
+            header('Location: /ingredients');
+            exit;
+        }
+
+        $deleted = 0;
+        $skipped = 0;
+        foreach ($ingredientIds as $ingredientId) {
+            $ingredient = Ingredient::findById($this->pdo, $orgId, $ingredientId);
+            if (!$ingredient) {
+                $skipped++;
+                continue;
+            }
+
+            if (
+                Ingredient::hasDishLines($this->pdo, $orgId, $ingredientId)
+                || Ingredient::hasMenuSnapshots($this->pdo, $orgId, $ingredientId)
+                || Ingredient::hasCostImportRows($this->pdo, $orgId, $ingredientId)
+            ) {
+                $skipped++;
+                continue;
+            }
+
+            Ingredient::delete($this->pdo, $orgId, $actor['id'] ?? 0, $ingredientId);
+            $deleted++;
+        }
+
+        if ($deleted > 0) {
+            $_SESSION['flash_success'] = "Deleted {$deleted} ingredient(s).";
+        }
+        if ($skipped > 0) {
+            $_SESSION['flash_error'] = "Skipped {$skipped} ingredient(s) because they are referenced or missing.";
+        }
+
         header('Location: /ingredients');
         exit;
     }
