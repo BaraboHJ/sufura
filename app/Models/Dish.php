@@ -170,7 +170,15 @@ class Dish
 
     private static function isUnknownColumnError(PDOException $e): bool
     {
-        return (int) ($e->errorInfo[1] ?? 0) === 1054;
+        $sqlState = (string) ($e->errorInfo[0] ?? $e->getCode());
+        $vendorCode = (int) ($e->errorInfo[1] ?? 0);
+        $message = strtolower($e->getMessage());
+
+        if ($vendorCode === 1054 || $sqlState === '42S22') {
+            return true;
+        }
+
+        return str_contains($message, 'unknown column');
     }
 
     private static function runWriteWithCategoryColumn(PDO $pdo, callable $callback): void
@@ -190,12 +198,27 @@ class Dish
             return self::$resolvedCategoryColumn;
         }
 
+        $stmt = $pdo->prepare(
+            'SELECT 1
+             FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = :table_name
+               AND COLUMN_NAME = :column_name
+             LIMIT 1'
+        );
+
+        if (!$stmt) {
+            self::$resolvedCategoryColumn = self::DEFAULT_CATEGORY_COLUMN;
+            return self::$resolvedCategoryColumn;
+        }
+
         foreach (['dish_category_id', 'category_id'] as $column) {
-            $stmt = $pdo->prepare('SHOW COLUMNS FROM dishes LIKE :column_name');
-            if ($stmt && $stmt->execute(['column_name' => $column]) && $stmt->fetch()) {
+            if ($stmt->execute(['table_name' => 'dishes', 'column_name' => $column]) && $stmt->fetchColumn()) {
                 self::$resolvedCategoryColumn = $column;
                 return $column;
             }
+
+            $stmt->closeCursor();
         }
 
         self::$resolvedCategoryColumn = self::DEFAULT_CATEGORY_COLUMN;
