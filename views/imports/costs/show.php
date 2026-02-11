@@ -150,9 +150,11 @@ if (confirmBtn) {
             }
             successBox.classList.remove('d-none');
             confirmBtn.disabled = true;
+            window.SufuraMotion?.animateIn(successBox);
         } catch (error) {
             errorBox.textContent = error.message;
             errorBox.classList.remove('d-none');
+            window.SufuraMotion?.animateIn(errorBox);
         }
     });
 }
