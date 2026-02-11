@@ -97,8 +97,9 @@ class DishCategory
 
     public static function hasDishes(PDO $pdo, int $orgId, int $id): bool
     {
+        $categoryColumn = Dish::categoryColumn($pdo);
         $stmt = $pdo->prepare(
-            'SELECT 1 FROM dishes WHERE org_id = :org_id AND category_id = :id LIMIT 1'
+            "SELECT 1 FROM dishes WHERE org_id = :org_id AND {$categoryColumn} = :id LIMIT 1"
         );
         $stmt->execute(['org_id' => $orgId, 'id' => $id]);
 
