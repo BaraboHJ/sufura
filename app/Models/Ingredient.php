@@ -229,6 +229,19 @@ class Ingredient
         return $stmt->fetchAll();
     }
 
+    public static function findBaseUomBySet(PDO $pdo, int $orgId, int $uomSetId): ?array
+    {
+        $stmt = $pdo->prepare(
+            'SELECT id, name, symbol, factor_to_base, is_base
+             FROM uoms
+             WHERE org_id = :org_id AND uom_set_id = :uom_set_id AND is_base = 1
+             LIMIT 1'
+        );
+        $stmt->execute(['org_id' => $orgId, 'uom_set_id' => $uomSetId]);
+        $row = $stmt->fetch();
+        return $row ?: null;
+    }
+
     public static function nameExists(PDO $pdo, int $orgId, string $name, ?int $excludeId = null): bool
     {
         $query = 'SELECT id FROM ingredients WHERE org_id = :org_id AND LOWER(name) = LOWER(:name)';

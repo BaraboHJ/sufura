@@ -33,8 +33,8 @@ class BulkImportController
         header('Content-Type: text/csv');
         header('Content-Disposition: attachment; filename="ingredients_template.csv"');
         $output = fopen('php://output', 'w');
-        fputcsv($output, ['name', 'uom_set', 'notes', 'active']);
-        fputcsv($output, ['Example Ingredient', 'Weight', 'Optional notes', '1']);
+        fputcsv($output, ['name', 'uom_set', 'cost_per_base', 'notes', 'active']);
+        fputcsv($output, ['Example Ingredient', 'Weight', '2.50', 'Optional notes', '1']);
         fclose($output);
     }
 
@@ -59,6 +59,7 @@ class BulkImportController
 
         $orgId = Auth::currentOrgId();
         $actor = Auth::currentUser();
+        $org = $this->loadOrg($orgId);
         $file = $_FILES['csv_file'];
         $handle = fopen($file['tmp_name'], 'r');
 
@@ -124,6 +125,7 @@ class BulkImportController
             $uomSetName = trim((string) ($data[$columnMap['uom_set']] ?? ''));
             $notes = trim((string) ($this->getColumnValue($data, $columnMap, 'notes') ?? ''));
             $activeRaw = $this->getColumnValue($data, $columnMap, 'active');
+            $costPerBaseRaw = trim((string) ($this->getColumnValue($data, $columnMap, 'cost_per_base') ?? ''));
 
             if ($name === '') {
                 $errors[] = "Row {$rowNum}: Name is required.";
@@ -151,13 +153,37 @@ class BulkImportController
             }
 
             $active = $this->parseBoolean($activeRaw, true) ? 1 : 0;
+            $costPerBaseX10000 = null;
+            if ($costPerBaseRaw !== '') {
+                $costPerBaseX10000 = $this->parseCostPerBaseX10000($costPerBaseRaw);
+                if ($costPerBaseX10000 === null || $costPerBaseX10000 < 0) {
+                    $errors[] = "Row {$rowNum}: cost_per_base must be a valid non-negative number.";
+                    $skipped++;
+                    continue;
+                }
+            }
 
-            Ingredient::create($this->pdo, $orgId, $actor['id'] ?? 0, [
+            $ingredient = Ingredient::create($this->pdo, $orgId, $actor['id'] ?? 0, [
                 'name' => $name,
                 'uom_set_id' => $uomSetId,
                 'notes' => $notes,
                 'active' => $active,
             ]);
+
+            if ($costPerBaseX10000 !== null) {
+                $baseUom = Ingredient::findBaseUomBySet($this->pdo, $orgId, $uomSetId);
+                if ($baseUom) {
+                    Ingredient::addCost($this->pdo, $orgId, $actor['id'] ?? 0, (int) ($ingredient['id'] ?? 0), [
+                        'cost_per_base_x10000' => $costPerBaseX10000,
+                        'currency' => $org['default_currency'] ?? 'USD',
+                        'effective_at' => date('Y-m-d H:i:s'),
+                        'purchase_qty' => 1,
+                        'purchase_uom_id' => (int) $baseUom['id'],
+                        'total_cost_minor' => (int) round($costPerBaseX10000 / 100),
+                    ]);
+                }
+            }
+
             $created++;
         }
 
@@ -612,6 +638,24 @@ class BulkImportController
             return null;
         }
         return (float) $value;
+    }
+
+
+    private function parseCostPerBaseX10000(string $value): ?int
+    {
+        $trimmed = trim($value);
+        if ($trimmed === '' || !preg_match('/^-?\d+(\.\d{1,4})?$/', $trimmed)) {
+            return null;
+        }
+
+        return (int) round((float) $trimmed * 10000);
+    }
+
+    private function loadOrg(int $orgId): array
+    {
+        $stmt = $this->pdo->prepare('SELECT id, default_currency FROM organizations WHERE id = :id');
+        $stmt->execute(['id' => $orgId]);
+        return $stmt->fetch() ?: [];
     }
 
     private function parseBoolean($value, bool $default): bool

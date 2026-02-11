@@ -61,6 +61,7 @@ $errors = $summary['errors'] ?? [];
                 </ul>
                 <div class="fw-semibold mt-3">Optional columns</div>
                 <ul class="mb-0 text-muted small">
+                    <li><code>cost_per_base</code> (cost per 1 base unit in your org currency)</li>
                     <li><code>notes</code></li>
                     <li><code>active</code> (1/0, yes/no, active/inactive)</li>
                 </ul>

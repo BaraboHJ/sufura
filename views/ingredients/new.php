@@ -44,6 +44,11 @@ unset($_SESSION['form_errors'], $_SESSION['form_values']);
                     </select>
                 </div>
                 <div class="mb-3">
+                    <label class="form-label">Initial cost per base unit (optional)</label>
+                    <input type="number" name="cost_per_base_major" min="0" step="0.0001" class="form-control" value="<?= htmlspecialchars($formValues['cost_per_base_major'] ?? '', ENT_QUOTES) ?>" placeholder="e.g. 2.50">
+                    <div class="form-text">Sets the latest ingredient cost right away.</div>
+                </div>
+                <div class="mb-3">
                     <label class="form-label">Notes</label>
                     <textarea name="notes" class="form-control" rows="3"><?= htmlspecialchars($formValues['notes'] ?? '', ENT_QUOTES) ?></textarea>
                 </div>

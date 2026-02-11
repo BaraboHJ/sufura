@@ -31,7 +31,7 @@ class AdminUserController
         Auth::requireRole(['admin']);
         $orgId = Auth::currentOrgId();
         $users = User::listByOrg($this->pdo, $orgId);
-        $pageTitle = 'User Management';
+        $pageTitle = 'Admin Portal';
         $view = __DIR__ . '/../../views/admin/users/index.php';
         require __DIR__ . '/../../views/layout.php';
     }
@@ -114,27 +114,49 @@ class AdminUserController
             'name' => $existing['name'],
             'email' => $existing['email'],
         ];
+        $newPassword = (string) ($_POST['password'] ?? '');
 
         $errors = User::validatePayload($payload, false);
+        if ($newPassword !== '' && strlen($newPassword) < 8) {
+            $errors[] = 'Password must be at least 8 characters.';
+        }
         if (!empty($errors)) {
             $_SESSION['flash_error'] = implode(' ', $errors);
             header('Location: /admin/users');
             exit;
         }
 
-        $updated = User::updateRoleStatus($this->pdo, $orgId, $userId, $payload['role'], $payload['status']);
-        Audit::log(
-            $this->pdo,
-            $orgId,
-            $actor['id'] ?? null,
-            'user',
-            $userId,
-            $payload['status'] === 'inactive' && $existing['status'] !== 'inactive' ? 'deactivate' : 'update',
-            $existing,
-            $updated
-        );
+        $this->pdo->beginTransaction();
+        try {
+            $updated = User::updateRoleStatus($this->pdo, $orgId, $userId, $payload['role'], $payload['status']);
+            if ($newPassword !== '') {
+                User::updatePassword($this->pdo, $orgId, $userId, $newPassword);
+                $updated = User::findById($this->pdo, $orgId, $userId) ?? $updated;
+            }
 
-        $_SESSION['flash_success'] = 'User updated.';
+            Audit::log(
+                $this->pdo,
+                $orgId,
+                $actor['id'] ?? null,
+                'user',
+                $userId,
+                $newPassword !== ''
+                    ? 'password_reset'
+                    : ($payload['status'] === 'inactive' && $existing['status'] !== 'inactive' ? 'deactivate' : 'update'),
+                $existing,
+                $updated
+            );
+            $this->pdo->commit();
+        } catch (\Throwable $e) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            $_SESSION['flash_error'] = 'Could not update user. Please try again.';
+            header('Location: /admin/users');
+            exit;
+        }
+
+        $_SESSION['flash_success'] = $newPassword !== '' ? 'User and password updated.' : 'User updated.';
         header('Location: /admin/users');
         exit;
     }
