@@ -47,7 +47,7 @@ class AdminUomController
         }
 
         $setName = trim((string) ($_POST['set_name'] ?? ''));
-        $baseUomId = isset($_POST['base_uom_id']) ? (int) $_POST['base_uom_id'] : 0;
+        $baseUomKey = trim((string) ($_POST['base_uom_id'] ?? ''));
         $submittedUoms = $_POST['uoms'] ?? [];
 
         $errors = [];
@@ -61,12 +61,13 @@ class AdminUomController
 
         $uoms = [];
         $seenSymbols = [];
-        foreach ($submittedUoms as $uomId => $row) {
+        foreach ($submittedUoms as $uomKey => $row) {
             if (!is_array($row)) {
                 continue;
             }
 
-            $id = (int) $uomId;
+            $key = trim((string) $uomKey);
+            $id = isset($row['id']) ? (int) $row['id'] : 0;
             $name = trim((string) ($row['name'] ?? ''));
             $symbol = trim((string) ($row['symbol'] ?? ''));
             $factor = isset($row['factor_to_base']) ? (float) $row['factor_to_base'] : 0.0;
@@ -90,6 +91,7 @@ class AdminUomController
             }
 
             $uoms[] = [
+                'key' => $key,
                 'id' => $id,
                 'name' => $name,
                 'symbol' => $symbol,
@@ -97,8 +99,8 @@ class AdminUomController
             ];
         }
 
-        $validIds = array_map(static fn (array $uom): int => (int) $uom['id'], $uoms);
-        if (!in_array($baseUomId, $validIds, true)) {
+        $validKeys = array_map(static fn (array $uom): string => (string) $uom['key'], $uoms);
+        if ($baseUomKey === '' || !in_array($baseUomKey, $validKeys, true)) {
             $errors[] = 'Please choose a valid base UoM.';
         }
 
@@ -109,10 +111,11 @@ class AdminUomController
         }
 
         try {
-            Uom::updateSetAndUoms($this->pdo, $orgId, $setId, $setName, $uoms, $baseUomId);
+            Uom::updateSetAndUoms($this->pdo, $orgId, $setId, $setName, $uoms, $baseUomKey);
             $_SESSION['flash_success'] = sprintf('Updated UoM set "%s".', $setName);
         } catch (\Throwable $exception) {
-            $_SESSION['flash_error'] = 'Could not update UoMs. Ensure symbols are unique.';
+            $message = $exception->getMessage();
+            $_SESSION['flash_error'] = $message !== '' ? $message : 'Could not update UoMs. Ensure symbols are unique.';
         }
 
         header('Location: /admin/uoms');
