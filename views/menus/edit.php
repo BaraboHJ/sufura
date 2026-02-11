@@ -17,7 +17,9 @@ function format_money_input(?int $minor): string
     return number_format($minor / 100, 2, '.', '');
 }
 
-$readOnly = ($menu['cost_mode'] ?? 'live') === 'locked';
+$viewOnly = $viewOnly ?? false;
+$isLocked = ($menu['cost_mode'] ?? 'live') === 'locked';
+$readOnly = $viewOnly || $isLocked;
 $menuType = $menu['menu_type'] ?? 'package';
 $paxCount = $report['totals']['pax_count'] ?? null;
 ?>
@@ -27,18 +29,22 @@ $paxCount = $report['totals']['pax_count'] ?? null;
         <h1 class="h3 mb-1"><?= htmlspecialchars($menu['name'], ENT_QUOTES) ?></h1>
         <p class="text-muted mb-0">
             Menu builder with costing and revenue analytics.
-            <?= $readOnly ? 'Costs are locked.' : 'Live costs.' ?>
+            <?= $viewOnly ? 'Viewing only.' : ($isLocked ? 'Costs are locked.' : 'Live costs.') ?>
         </p>
     </div>
     <div class="d-flex gap-2">
-        <form method="post" action="/menus/<?= (int) $menu['id'] ?>/duplicate">
-            <?= Csrf::input() ?>
-            <button class="btn btn-outline-secondary" type="submit">Duplicate menu</button>
-        </form>
-        <?php if ($readOnly): ?>
-            <button class="btn btn-warning" id="unlock-menu" type="button">Unlock</button>
+        <?php if ($viewOnly): ?>
+            <a class="btn btn-primary" href="/menus/<?= (int) $menu['id'] ?>/edit">Edit</a>
         <?php else: ?>
-            <button class="btn btn-dark" id="lock-menu" type="button" <?= $canLock ? '' : 'disabled' ?>>Lock costs for quoting</button>
+            <form method="post" action="/menus/<?= (int) $menu['id'] ?>/duplicate">
+                <?= Csrf::input() ?>
+                <button class="btn btn-outline-secondary" type="submit">Duplicate menu</button>
+            </form>
+            <?php if ($isLocked): ?>
+                <button class="btn btn-warning" id="unlock-menu" type="button">Unlock</button>
+            <?php else: ?>
+                <button class="btn btn-dark" id="lock-menu" type="button" <?= $canLock ? '' : 'disabled' ?>>Lock costs for quoting</button>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>

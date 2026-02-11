@@ -66,7 +66,10 @@ function format_money(?int $minor, string $currency): string
                                 </td>
                                 <td><?= htmlspecialchars($menu['updated_at'] ?? $menu['created_at'] ?? '', ENT_QUOTES) ?></td>
                                 <td class="text-end">
-                                    <a class="btn btn-sm btn-outline-primary" href="/menus/<?= (int) $menu['id'] ?>/edit">Open</a>
+                                    <div class="d-inline-flex gap-2">
+                                        <a class="btn btn-sm btn-outline-primary" href="/menus/<?= (int) $menu['id'] ?>/edit?mode=view">View</a>
+                                        <a class="btn btn-sm btn-primary" href="/menus/<?= (int) $menu['id'] ?>/edit">Edit</a>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
