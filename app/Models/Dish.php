@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use PDO;
-use PDOException;
 
 class Dish
 {
@@ -107,7 +106,7 @@ class Dish
         );
     }
 
-    public static function categoryColumn(PDO $pdo): string
+    public static function searchByOrg(PDO $pdo, int $orgId, int $categoryId = 0, string $query = ''): array
     {
         foreach (self::CATEGORY_COLUMNS as $column) {
             if (self::columnExists($pdo, $column) && self::supportsCategoryQuery($pdo, $column)) {
@@ -171,53 +170,22 @@ class Dish
         );
     }
 
-    private static function supportsCategoryQuery(PDO $pdo, string $column): bool
+    public static function categoryColumn(PDO $pdo): string
     {
-        try {
-            $probe = $pdo->prepare(
-                "SELECT d.id
-                 FROM dishes d
-                 JOIN dish_categories c ON c.id = d.{$column} AND c.org_id = d.org_id
-                 WHERE d.org_id = :org_id
-                 LIMIT 0"
-            );
+        if (self::$resolvedCategoryColumn !== null) {
+            return self::$resolvedCategoryColumn;
+        }
 
-            if (!$probe) {
-                return false;
+        foreach (['dish_category_id', 'category_id'] as $column) {
+            $stmt = $pdo->prepare('SHOW COLUMNS FROM dishes LIKE :column_name');
+            if ($stmt && $stmt->execute(['column_name' => $column]) && $stmt->fetch()) {
+                self::$resolvedCategoryColumn = $column;
+                return $column;
             }
-
-            if ($probe->execute(['org_id' => 0])) {
-                return true;
-            }
-
-            $errorInfo = $probe->errorInfo();
-            return (int) ($errorInfo[1] ?? 0) !== 1054;
-        } catch (PDOException $e) {
-            return false;
-        }
-    }
-
-    private static function columnExists(PDO $pdo, string $column): bool
-    {
-        $schemaStmt = $pdo->prepare(
-            'SELECT 1
-             FROM information_schema.columns
-             WHERE table_schema = DATABASE()
-               AND table_name = :table_name
-               AND column_name = :column_name
-             LIMIT 1'
-        );
-
-        if ($schemaStmt && $schemaStmt->execute(['table_name' => 'dishes', 'column_name' => $column])) {
-            return (bool) $schemaStmt->fetchColumn();
         }
 
-        try {
-            $probe = $pdo->query("SELECT {$column} FROM dishes LIMIT 0");
-            return $probe !== false;
-        } catch (PDOException $e) {
-            return false;
-        }
+        self::$resolvedCategoryColumn = self::DEFAULT_CATEGORY_COLUMN;
+        return self::$resolvedCategoryColumn;
     }
 
     public static function delete(PDO $pdo, int $orgId, int $actorUserId, int $id): void
@@ -230,18 +198,14 @@ class Dish
 
     public static function hasMenuItems(PDO $pdo, int $orgId, int $id): bool
     {
-        $stmt = $pdo->prepare(
-            'SELECT 1 FROM menu_items WHERE org_id = :org_id AND dish_id = :id LIMIT 1'
-        );
+        $stmt = $pdo->prepare('SELECT 1 FROM menu_items WHERE org_id = :org_id AND dish_id = :id LIMIT 1');
         $stmt->execute(['org_id' => $orgId, 'id' => $id]);
         return (bool) $stmt->fetchColumn();
     }
 
     public static function hasMenuSnapshots(PDO $pdo, int $orgId, int $id): bool
     {
-        $stmt = $pdo->prepare(
-            'SELECT 1 FROM menu_item_cost_snapshots WHERE org_id = :org_id AND dish_id = :id LIMIT 1'
-        );
+        $stmt = $pdo->prepare('SELECT 1 FROM menu_item_cost_snapshots WHERE org_id = :org_id AND dish_id = :id LIMIT 1');
         $stmt->execute(['org_id' => $orgId, 'id' => $id]);
         return (bool) $stmt->fetchColumn();
     }
