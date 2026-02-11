@@ -26,11 +26,21 @@ class Dish
             'active' => $payload['active'] ?? 1,
         ]);
 
+        $stmt->execute([
+            'org_id' => $orgId,
+            'name' => $payload['name'],
+            'category_id' => $payload['category_id'],
+            'description' => $payload['description'],
+            'yield_servings' => $payload['yield_servings'] ?? 1,
+            'active' => $payload['active'] ?? 1,
+        ]);
+
         $id = (int) $pdo->lastInsertId();
         $dish = self::findById($pdo, $orgId, $id);
+
         Audit::log($pdo, $orgId, $actorUserId, 'dish', $id, 'create', null, $dish);
 
-        return $dish ?? [];
+        return $dish ?: [];
     }
 
     public static function update(PDO $pdo, int $orgId, int $actorUserId, int $id, array $payload): array
@@ -58,10 +68,20 @@ class Dish
             'id' => $id,
         ]);
 
+        $stmt->execute([
+            'name' => $payload['name'],
+            'category_id' => $payload['category_id'],
+            'description' => $payload['description'],
+            'yield_servings' => $payload['yield_servings'] ?? 1,
+            'active' => $payload['active'] ?? 1,
+            'org_id' => $orgId,
+            'id' => $id,
+        ]);
+
         $after = self::findById($pdo, $orgId, $id);
         Audit::log($pdo, $orgId, $actorUserId, 'dish', $id, 'update', $before, $after);
 
-        return $after ?? [];
+        return $after ?: [];
     }
 
     public static function findById(PDO $pdo, int $orgId, int $id): ?array
@@ -186,6 +206,29 @@ class Dish
 
         self::$cachedCategoryColumn = self::FALLBACK_CATEGORY_COLUMN;
         return self::$cachedCategoryColumn;
+    }
+
+    private static function dishesTableHasColumn(PDO $pdo, string $column): bool
+    {
+        $stmt = $pdo->prepare(
+            'SELECT 1
+             FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = :table_name
+               AND COLUMN_NAME = :column_name
+             LIMIT 1'
+        );
+
+        if (!$stmt) {
+            return false;
+        }
+
+        $stmt->execute([
+            'table_name' => 'dishes',
+            'column_name' => $column,
+        ]);
+
+        return (bool) $stmt->fetchColumn();
     }
 
     public static function delete(PDO $pdo, int $orgId, int $actorUserId, int $id): void
