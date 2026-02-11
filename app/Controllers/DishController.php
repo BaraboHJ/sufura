@@ -504,8 +504,9 @@ class DishController
         $categoryId = (int) ($_GET['category_id'] ?? 0);
         $query = trim($_GET['query'] ?? '');
 
-        $sql = 'SELECT id, name, description, yield_servings, category_id
-'
+        $categoryColumn = Dish::categoryColumn($this->pdo);
+        $sql = "SELECT id, name, description, yield_servings, {$categoryColumn} AS category_id
+"
             . 'FROM dishes
 '
             . 'WHERE org_id = :org_id';
@@ -518,7 +519,7 @@ class DishController
                 return;
             }
 
-            $sql .= ' AND category_id = :category_id';
+            $sql .= " AND {$categoryColumn} = :category_id";
             $params['category_id'] = $categoryId;
         }
 
