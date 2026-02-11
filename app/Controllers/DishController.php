@@ -504,36 +504,15 @@ class DishController
         $categoryId = (int) ($_GET['category_id'] ?? 0);
         $query = trim($_GET['query'] ?? '');
 
-        $categoryColumn = Dish::categoryColumn($this->pdo);
-        $sql = "SELECT id, name, description, yield_servings, {$categoryColumn} AS category_id
-"
-            . 'FROM dishes
-'
-            . 'WHERE org_id = :org_id';
-        $params = ['org_id' => $orgId];
-
         if ($categoryId > 0) {
             $category = DishCategory::findById($this->pdo, $orgId, $categoryId);
             if (!$category) {
                 echo json_encode(['results' => []]);
                 return;
             }
-
-            $sql .= " AND {$categoryColumn} = :category_id";
-            $params['category_id'] = $categoryId;
         }
 
-        if ($query !== '') {
-            $sql .= ' AND name LIKE :query';
-            $params['query'] = '%' . $query . '%';
-        }
-
-        $sql .= ' ORDER BY name LIMIT 25';
-
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-        $results = $stmt->fetchAll();
-
+        $results = Dish::searchByOrg($this->pdo, $orgId, $categoryId, $query);
         echo json_encode(['results' => $results]);
     }
 
