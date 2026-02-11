@@ -112,9 +112,22 @@ class Dish
 
     private static function columnExists(PDO $pdo, string $column): bool
     {
+        $schemaStmt = $pdo->prepare(
+            'SELECT 1
+             FROM information_schema.columns
+             WHERE table_schema = DATABASE()
+               AND table_name = :table_name
+               AND column_name = :column_name
+             LIMIT 1'
+        );
+
+        if ($schemaStmt && $schemaStmt->execute(['table_name' => 'dishes', 'column_name' => $column])) {
+            return (bool) $schemaStmt->fetchColumn();
+        }
+
         try {
-            $pdo->query("SELECT {$column} FROM dishes LIMIT 0");
-            return true;
+            $probe = $pdo->query("SELECT {$column} FROM dishes LIMIT 0");
+            return $probe !== false;
         } catch (PDOException $e) {
             return false;
         }
