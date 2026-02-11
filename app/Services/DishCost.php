@@ -58,6 +58,7 @@ class DishCost
                     u.symbol AS uom_symbol,
                     u.uom_set_id AS uom_set_id,
                     u.factor_to_base,
+                    base_uom.id AS base_uom_id,
                     base_uom.symbol AS base_uom_symbol,
                     (SELECT ic.cost_per_base_x10000
                      FROM ingredient_costs ic
@@ -103,6 +104,7 @@ class DishCost
                 'uom_symbol' => $row['uom_symbol'],
                 'uom_set_id' => (int) $row['ingredient_uom_set_id'],
                 'qty_in_base' => $qtyInBase,
+                'base_uom_id' => (int) $row['base_uom_id'],
                 'base_uom_symbol' => $row['base_uom_symbol'],
                 'cost_per_base_x10000' => $costPerBase,
                 'cost_effective_at' => $row['cost_effective_at'],

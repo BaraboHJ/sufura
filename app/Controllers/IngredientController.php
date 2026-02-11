@@ -83,7 +83,8 @@ class IngredientController
             exit;
         }
 
-        Ingredient::create($this->pdo, $orgId, $actor['id'] ?? 0, $payload);
+        $ingredient = Ingredient::create($this->pdo, $orgId, $actor['id'] ?? 0, $payload);
+        $this->applyInitialCost($orgId, $actor, $ingredient, $payload['cost_per_base_major'] ?? null);
 
         $_SESSION['flash_success'] = 'Ingredient created.';
         header('Location: /ingredients');
@@ -370,6 +371,7 @@ class IngredientController
             'uom_set_id' => isset($payload['uom_set_id']) ? (int) $payload['uom_set_id'] : 0,
             'notes' => trim((string) ($payload['notes'] ?? '')),
             'active' => isset($payload['active']) ? (int) $payload['active'] : 1,
+            'cost_per_base_major' => trim((string) ($payload['cost_per_base_major'] ?? '')),
         ];
 
         $errors = $this->validatePayload($orgId, $data);
@@ -380,10 +382,15 @@ class IngredientController
         }
 
         $ingredient = Ingredient::create($this->pdo, $orgId, $actor['id'] ?? 0, $data);
+        $cost = $this->applyInitialCost($orgId, $actor, $ingredient, $data['cost_per_base_major'] ?? null);
+        $baseUom = Ingredient::findBaseUomBySet($this->pdo, $orgId, (int) ($ingredient['uom_set_id'] ?? $data['uom_set_id']));
         echo json_encode([
             'id' => (int) ($ingredient['id'] ?? 0),
             'name' => $ingredient['name'] ?? $data['name'],
             'uom_set_id' => (int) ($ingredient['uom_set_id'] ?? $data['uom_set_id']),
+            'base_uom_id' => $baseUom ? (int) $baseUom['id'] : null,
+            'base_uom_symbol' => $baseUom['symbol'] ?? null,
+            'cost_per_base_x10000' => $cost['cost_per_base_x10000'] ?? null,
         ]);
     }
 
@@ -419,6 +426,7 @@ class IngredientController
             'uom_set_id' => isset($_POST['uom_set_id']) ? (int) $_POST['uom_set_id'] : 0,
             'notes' => trim($_POST['notes'] ?? ''),
             'active' => isset($_POST['active']) ? 1 : 0,
+            'cost_per_base_major' => trim($_POST['cost_per_base_major'] ?? ''),
         ];
     }
 
@@ -436,6 +444,13 @@ class IngredientController
 
         if ($payload['name'] !== '' && Ingredient::nameExists($this->pdo, $orgId, $payload['name'], $excludeId)) {
             $errors[] = 'Ingredient name must be unique within the organization.';
+        }
+
+        if (($payload['cost_per_base_major'] ?? '') !== '') {
+            $parsedCost = $this->parseCostPerBaseX10000((string) $payload['cost_per_base_major']);
+            if ($parsedCost === null || $parsedCost < 0) {
+                $errors[] = 'Initial cost per base unit must be a non-negative number.';
+            }
         }
 
         return $errors;
@@ -499,6 +514,7 @@ class IngredientController
             'SELECT i.id,
                     i.name,
                     i.uom_set_id,
+                    base_uom.id AS base_uom_id,
                     base_uom.symbol AS base_uom_symbol,
                     (SELECT ic.cost_per_base_x10000
                      FROM ingredient_costs ic
@@ -531,10 +547,51 @@ class IngredientController
                 'id' => (int) $row['id'],
                 'name' => $row['name'],
                 'uom_set_id' => (int) $row['uom_set_id'],
+                'base_uom_id' => (int) $row['base_uom_id'],
                 'base_uom_symbol' => $row['base_uom_symbol'],
+                'cost_per_base_x10000' => $row['cost_per_base_x10000'] !== null ? (int) $row['cost_per_base_x10000'] : null,
                 'has_cost' => $hasCost,
                 'is_stale' => $isStale,
             ];
         }, $rows);
+    }
+
+    private function applyInitialCost(int $orgId, array $actor, array $ingredient, ?string $costPerBaseMajor): ?array
+    {
+        $costValue = trim((string) ($costPerBaseMajor ?? ''));
+        if ($costValue === '') {
+            return null;
+        }
+
+        $costPerBaseX10000 = $this->parseCostPerBaseX10000($costValue);
+        if ($costPerBaseX10000 === null || $costPerBaseX10000 < 0 || empty($ingredient['id'])) {
+            return null;
+        }
+
+        $baseUom = Ingredient::findBaseUomBySet($this->pdo, $orgId, (int) ($ingredient['uom_set_id'] ?? 0));
+        if (!$baseUom) {
+            return null;
+        }
+
+        $org = $this->loadOrg($orgId);
+        $totalCostMinor = (int) round($costPerBaseX10000 / 100);
+        return Ingredient::addCost($this->pdo, $orgId, $actor['id'] ?? 0, (int) $ingredient['id'], [
+            'cost_per_base_x10000' => $costPerBaseX10000,
+            'currency' => $org['default_currency'] ?? 'USD',
+            'effective_at' => date('Y-m-d H:i:s'),
+            'purchase_qty' => 1,
+            'purchase_uom_id' => (int) $baseUom['id'],
+            'total_cost_minor' => $totalCostMinor,
+        ]);
+    }
+
+    private function parseCostPerBaseX10000(string $value): ?int
+    {
+        $trimmed = trim($value);
+        if ($trimmed === '' || !preg_match('/^-?\d+(\.\d{1,4})?$/', $trimmed)) {
+            return null;
+        }
+
+        return (int) round((float) $trimmed * 10000);
     }
 }

@@ -128,22 +128,23 @@ $knownCount = (int) ($summary['lines_count'] ?? 0) - (int) ($summary['unknown_co
                 <table class="table align-middle mb-0" id="recipe-table" data-dish-id="<?= (int) $dish['id'] ?>" data-csrf="<?= htmlspecialchars($csrfToken, ENT_QUOTES) ?>">
                     <thead class="table-secondary">
                         <tr>
-                            <th style="width: 35%">Ingredient</th>
-                            <th style="width: 15%">Qty</th>
-                            <th style="width: 20%">Unit</th>
-                            <th style="width: 15%">Line cost</th>
-                            <th style="width: 15%"></th>
+                            <th style="width: 30%">Ingredient</th>
+                            <th style="width: 12%">Qty</th>
+                            <th style="width: 18%">Unit</th>
+                            <th style="width: 18%">Cost/base</th>
+                            <th style="width: 12%">Line cost</th>
+                            <th style="width: 10%"></th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($lines)): ?>
                             <tr class="empty-row">
-                                <td colspan="5" class="text-center text-muted py-4">Add ingredients to start costing.</td>
+                                <td colspan="6" class="text-center text-muted py-4">Add ingredients to start costing.</td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($lines as $line): ?>
                                 <?php $lineMeta = $lineBreakdown[(int) $line['id']] ?? null; ?>
-                                <tr data-line-id="<?= (int) $line['id'] ?>" data-ingredient-id="<?= (int) $line['ingredient_id'] ?>" data-uom-set-id="<?= (int) $line['uom_set_id'] ?>" data-sort-order="<?= (int) $line['sort_order'] ?>">
+                                <tr data-line-id="<?= (int) $line['id'] ?>" data-ingredient-id="<?= (int) $line['ingredient_id'] ?>" data-uom-set-id="<?= (int) $line['uom_set_id'] ?>" data-base-uom-id="<?= (int) ($lineMeta['base_uom_id'] ?? 0) ?>" data-base-uom-symbol="<?= htmlspecialchars($lineMeta['base_uom_symbol'] ?? '', ENT_QUOTES) ?>" data-sort-order="<?= (int) $line['sort_order'] ?>">
                                     <td class="position-relative">
                                         <input type="text" class="form-control ingredient-input" value="<?= htmlspecialchars($line['ingredient_name'], ENT_QUOTES) ?>" autocomplete="off">
                                         <div class="list-group position-absolute w-100 shadow-sm d-none ingredient-dropdown"></div>
@@ -155,6 +156,12 @@ $knownCount = (int) ($summary['lines_count'] ?? 0) - (int) ($summary['unknown_co
                                         <select class="form-select uom-select" data-selected="<?= (int) $line['uom_id'] ?>">
                                             <option value="<?= (int) $line['uom_id'] ?>"><?= htmlspecialchars($line['uom_name'], ENT_QUOTES) ?> (<?= htmlspecialchars($line['uom_symbol'], ENT_QUOTES) ?>)</option>
                                         </select>
+                                    </td>
+                                    <td>
+                                        <div class="input-group input-group-sm">
+                                            <input type="number" min="0" step="0.0001" class="form-control cost-per-base-input" value="<?= $lineMeta && $lineMeta['cost_per_base_x10000'] !== null ? htmlspecialchars(number_format(((int) $lineMeta['cost_per_base_x10000']) / 10000, 4, '.', ''), ENT_QUOTES) : '' ?>" placeholder="—">
+                                            <span class="input-group-text base-uom-symbol"><?= htmlspecialchars($lineMeta['base_uom_symbol'] ?? '', ENT_QUOTES) ?></span>
+                                        </div>
                                     </td>
                                     <td class="line-cost text-muted">
                                         <?= $lineMeta && $lineMeta['line_cost_minor'] !== null ? format_money((int) $lineMeta['line_cost_minor'], $currency) : '—' ?>
@@ -200,6 +207,10 @@ $knownCount = (int) ($summary['lines_count'] ?? 0) - (int) ($summary['unknown_co
                                 </option>
                             <?php endforeach; ?>
                         </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Initial cost per base unit (optional)</label>
+                        <input type="number" class="form-control" name="cost_per_base_major" min="0" step="0.0001" placeholder="e.g. 2.50">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Notes</label>
@@ -248,6 +259,58 @@ document.addEventListener('DOMContentLoaded', () => {
             return '—';
         }
         return `${currency} ${(minor / 100).toFixed(2)}`;
+    };
+
+    const syncCostPerBaseUi = (row, lineBreakdown) => {
+        if (!lineBreakdown) {
+            return;
+        }
+        if (lineBreakdown.base_uom_id) {
+            row.dataset.baseUomId = lineBreakdown.base_uom_id;
+        }
+        if (lineBreakdown.base_uom_symbol) {
+            row.dataset.baseUomSymbol = lineBreakdown.base_uom_symbol;
+        }
+
+        const costInput = row.querySelector('.cost-per-base-input');
+        if (costInput && lineBreakdown.cost_per_base_x10000 !== null && typeof lineBreakdown.cost_per_base_x10000 !== 'undefined') {
+            costInput.value = (lineBreakdown.cost_per_base_x10000 / 10000).toFixed(4);
+        }
+
+        const baseSymbolEl = row.querySelector('.base-uom-symbol');
+        if (baseSymbolEl) {
+            baseSymbolEl.textContent = row.dataset.baseUomSymbol || '';
+        }
+    };
+
+    const updateIngredientCost = async (row) => {
+        const ingredientId = Number(row.dataset.ingredientId || 0);
+        const baseUomId = Number(row.dataset.baseUomId || 0);
+        const costInput = row.querySelector('.cost-per-base-input');
+
+        if (!ingredientId || !baseUomId || !costInput) {
+            return;
+        }
+
+        const rawValue = costInput.value.trim();
+        if (!rawValue) {
+            return;
+        }
+
+        await fetchJson(`/api/ingredients/${ingredientId}/cost`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrfToken,
+            },
+            body: JSON.stringify({
+                purchase_qty: 1,
+                purchase_uom_id: baseUomId,
+                total_cost_major: rawValue,
+            }),
+        });
+
+        await updateLine(row);
     };
 
     const updateSummary = (summary) => {
@@ -329,6 +392,7 @@ document.addEventListener('DOMContentLoaded', () => {
             body: JSON.stringify(payload),
         });
         if (data.line_breakdown) {
+            syncCostPerBaseUi(row, data.line_breakdown);
             const lineCostEl = row.querySelector('.line-cost');
             if (lineCostEl) {
                 lineCostEl.textContent = data.line_breakdown.line_cost_minor === null
@@ -354,6 +418,12 @@ document.addEventListener('DOMContentLoaded', () => {
             </td>
             <td><input type="number" min="0" step="0.0001" class="form-control qty-input" value="1"></td>
             <td><select class="form-select uom-select" disabled><option value="">Select unit</option></select></td>
+            <td>
+                <div class="input-group input-group-sm">
+                    <input type="number" min="0" step="0.0001" class="form-control cost-per-base-input" value="" placeholder="—">
+                    <span class="input-group-text base-uom-symbol"></span>
+                </div>
+            </td>
             <td class="line-cost text-muted">—</td>
             <td class="text-end">
                 <div class="btn-group btn-group-sm" role="group">
@@ -383,6 +453,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const handleIngredientSelect = async (row, ingredient) => {
         row.dataset.ingredientId = ingredient.id;
         row.dataset.uomSetId = ingredient.uom_set_id;
+        row.dataset.baseUomId = ingredient.base_uom_id || '';
+        row.dataset.baseUomSymbol = ingredient.base_uom_symbol || '';
+        const baseSymbolEl = row.querySelector('.base-uom-symbol');
+        if (baseSymbolEl) {
+            baseSymbolEl.textContent = ingredient.base_uom_symbol || '';
+        }
+        const costInput = row.querySelector('.cost-per-base-input');
+        if (costInput) {
+            costInput.value = ingredient.cost_per_base_x10000 ? (ingredient.cost_per_base_x10000 / 10000).toFixed(4) : '';
+        }
         row.querySelector('.ingredient-input').value = ingredient.name;
         const select = row.querySelector('.uom-select');
         if (select) {
@@ -404,6 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
             row.dataset.lineId = data.line?.id || '';
             updateSummary(data.summary);
             if (data.line_breakdown) {
+                syncCostPerBaseUi(row, data.line_breakdown);
                 const lineCostEl = row.querySelector('.line-cost');
                 lineCostEl.textContent = data.line_breakdown.line_cost_minor === null
                     ? '—'
@@ -429,6 +510,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 activeRow = row;
                 modalForm.name.value = query;
                 modalForm.notes.value = '';
+                modalForm.cost_per_base_major.value = '';
                 modalForm.uom_set_id.value = '';
                 modalError.classList.add('d-none');
                 modalError.textContent = '';
@@ -489,6 +571,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const qtyInput = row.querySelector('.qty-input');
         const uomSelect = row.querySelector('.uom-select');
         const deleteBtn = row.querySelector('.delete-line');
+        const costPerBaseInput = row.querySelector('.cost-per-base-input');
         const moveUp = row.querySelector('.move-up');
         const moveDown = row.querySelector('.move-down');
 
@@ -497,6 +580,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (uomSelect) {
             uomSelect.addEventListener('change', () => updateLine(row));
+        }
+        if (costPerBaseInput) {
+            costPerBaseInput.addEventListener('change', () => {
+                updateIngredientCost(row).catch((error) => console.error(error));
+            });
         }
         if (deleteBtn) {
             deleteBtn.addEventListener('click', async () => {
@@ -514,7 +602,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (tbody && tbody.querySelectorAll('tr').length === 0) {
                     const emptyRow = document.createElement('tr');
                     emptyRow.className = 'empty-row';
-                    emptyRow.innerHTML = '<td colspan="5" class="text-center text-muted py-4">Add ingredients to start costing.</td>';
+                    emptyRow.innerHTML = '<td colspan="6" class="text-center text-muted py-4">Add ingredients to start costing.</td>';
                     tbody.appendChild(emptyRow);
                 }
                 await applySortOrders();
@@ -544,6 +632,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!row.classList.contains('empty-row')) {
             attachRowEvents(row);
             const uomSetId = row.dataset.uomSetId;
+            const baseSymbolEl = row.querySelector('.base-uom-symbol');
+            if (baseSymbolEl) {
+                baseSymbolEl.textContent = row.dataset.baseUomSymbol || '';
+            }
             if (uomSetId) {
                 ensureUoms(row, uomSetId).catch((error) => console.error(error));
             }
@@ -569,6 +661,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 name: modalForm.name.value.trim(),
                 uom_set_id: modalForm.uom_set_id.value,
                 notes: modalForm.notes.value.trim(),
+                cost_per_base_major: modalForm.cost_per_base_major.value.trim(),
                 active: 1,
             };
             const data = await fetchJson('/api/ingredients/create', {
@@ -584,6 +677,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     id: data.id,
                     name: data.name,
                     uom_set_id: data.uom_set_id,
+                    base_uom_id: data.base_uom_id,
+                    base_uom_symbol: data.base_uom_symbol,
+                    cost_per_base_x10000: data.cost_per_base_x10000,
                 });
             }
             modal?.hide();
