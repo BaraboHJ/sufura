@@ -6,15 +6,24 @@ use App\Core\Auth;
 use App\Core\Csrf;
 use App\Models\User;
 use App\Models\Audit;
+use App\Services\SystemUpdater;
 use PDO;
 
 class AdminUserController
 {
     private PDO $pdo;
+    /** @var array<string, mixed> */
+    private array $config;
+    private string $projectRoot;
 
-    public function __construct(PDO $pdo)
+    /**
+     * @param array<string, mixed> $config
+     */
+    public function __construct(PDO $pdo, array $config, string $projectRoot)
     {
         $this->pdo = $pdo;
+        $this->config = $config;
+        $this->projectRoot = rtrim($projectRoot, '/');
     }
 
     public function index(): void
@@ -169,6 +178,37 @@ class AdminUserController
                 $this->pdo->rollBack();
             }
             $_SESSION['flash_error'] = 'Could not reset data. Please try again.';
+        }
+
+        header('Location: /admin/users');
+        exit;
+    }
+
+    public function runSystemUpdate(): void
+    {
+        Auth::requireRole(['admin']);
+        if (!Csrf::validate($_POST['csrf_token'] ?? null)) {
+            http_response_code(403);
+            echo 'Invalid CSRF token.';
+            return;
+        }
+
+        $repoZipUrl = (string) ($this->config['update_zip_url'] ?? 'https://github.com/BaraboHJ/sufura/archive/refs/heads/main.zip');
+        $excludePaths = $this->config['update_exclude_paths'] ?? [];
+        if (!is_array($excludePaths)) {
+            $excludePaths = [];
+        }
+
+        try {
+            $updater = new SystemUpdater($this->projectRoot, $repoZipUrl, $excludePaths);
+            $result = $updater->run();
+            $_SESSION['flash_success'] = sprintf(
+                'Update complete. %d files synchronized from %s.',
+                (int) ($result['files_updated'] ?? 0),
+                $repoZipUrl
+            );
+        } catch (\Throwable $e) {
+            $_SESSION['flash_error'] = 'System update failed: ' . $e->getMessage();
         }
 
         header('Location: /admin/users');

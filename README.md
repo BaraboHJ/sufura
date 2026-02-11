@@ -27,6 +27,17 @@
 
 **Important:** Change this password after first login.
 
+
+## Admin Self-Update (PHP-only)
+- Go to **User Management** as an admin and click **Update from GitHub**.
+- The updater downloads `main.zip` from this repository, extracts it in `tmp/`, and copies files into the app.
+- To protect local server settings, these paths are excluded by default: `.env`, `config/config.php`, `uploads/`, and `tmp/`.
+- Configure source URL and extra exclusions in `config/config.php` using:
+  - `update_zip_url`
+  - `update_exclude_paths`
+
+**Requirements:** PHP `curl` and `zip` extensions enabled, and write permission to project folders.
+
 ## Notes
 - All monetary values are stored in minor units (integers) with currency columns.
 - All records are scoped to `org_id` for multi-tenancy.

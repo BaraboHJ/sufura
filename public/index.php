@@ -50,7 +50,7 @@ $router = new Router();
 
 $homeController = new HomeController();
 $authController = new AuthController($pdo);
-$adminUserController = new AdminUserController($pdo);
+$adminUserController = new AdminUserController($pdo, $config, $root);
 $ingredientController = new IngredientController($pdo);
 $dishController = new DishController($pdo);
 $menuController = new MenuController($pdo);
@@ -66,6 +66,7 @@ $router->get('/admin/users/new', [$adminUserController, 'createForm']);
 $router->post('/admin/users/create', [$adminUserController, 'create']);
 $router->post('/admin/users/:id/update', [$adminUserController, 'update']);
 $router->post('/admin/reset-data', [$adminUserController, 'resetData']);
+$router->post('/admin/system/update', [$adminUserController, 'runSystemUpdate']);
 $router->get('/ingredients', [$ingredientController, 'index']);
 $router->get('/ingredients/new', [$ingredientController, 'createForm']);
 $router->post('/ingredients/create', [$ingredientController, 'create']);
