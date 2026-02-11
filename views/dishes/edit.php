@@ -107,6 +107,15 @@ $knownCount = (int) ($summary['lines_count'] ?? 0) - (int) ($summary['unknown_co
     </div>
 
     <div class="col-lg-7">
+        <style>
+            .recipe-table-container {
+                overflow: visible;
+            }
+
+            .recipe-table-container .ingredient-dropdown {
+                z-index: 1100;
+            }
+        </style>
         <div class="card shadow-sm">
             <div class="card-header bg-body-secondary d-flex justify-content-between align-items-center">
                 <div>
@@ -115,7 +124,7 @@ $knownCount = (int) ($summary['lines_count'] ?? 0) - (int) ($summary['unknown_co
                 </div>
                 <button class="btn btn-sm btn-outline-primary" id="add-line" type="button">Add line</button>
             </div>
-            <div class="table-responsive">
+            <div class="table-responsive recipe-table-container">
                 <table class="table align-middle mb-0" id="recipe-table" data-dish-id="<?= (int) $dish['id'] ?>" data-csrf="<?= htmlspecialchars($csrfToken, ENT_QUOTES) ?>">
                     <thead class="table-secondary">
                         <tr>
