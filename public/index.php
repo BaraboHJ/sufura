@@ -89,6 +89,7 @@ $router->post('/ingredients/:id/update', [$ingredientController, 'update']);
 $router->post('/ingredients/:id/delete', [$ingredientController, 'delete']);
 $router->post('/ingredients/bulk-delete', [$ingredientController, 'bulkDelete']);
 $router->post('/api/ingredients/:id/costs', [$ingredientController, 'addCost']);
+$router->post('/api/ingredients/:id/cost', [$ingredientController, 'addCost']);
 $router->get('/api/ingredients/search', [$ingredientController, 'search']);
 $router->post('/api/ingredients/create', [$ingredientController, 'createFromApi']);
 $router->get('/api/uoms', [$ingredientController, 'listUoms']);
