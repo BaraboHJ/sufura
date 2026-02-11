@@ -515,11 +515,12 @@ class DishController
             return;
         }
 
-        $sql = 'SELECT id, name, description, yield_servings, category_id
-'
+        $categoryColumn = Dish::categoryColumn($this->pdo);
+        $sql = "SELECT id, name, description, yield_servings, {$categoryColumn} AS category_id
+"
             . 'FROM dishes
 '
-            . 'WHERE org_id = :org_id AND category_id = :category_id';
+            . "WHERE org_id = :org_id AND {$categoryColumn} = :category_id";
         $params = ['org_id' => $orgId, 'category_id' => $categoryId];
 
         if ($query !== '') {
