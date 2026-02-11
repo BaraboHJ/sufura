@@ -309,7 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        await fetchJson(`/api/ingredients/${ingredientId}/cost`, {
+        await fetchJson(`/api/ingredients/${ingredientId}/costs`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
