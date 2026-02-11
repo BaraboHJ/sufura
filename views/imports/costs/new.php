@@ -63,12 +63,14 @@ form.addEventListener('submit', async (event) => {
         const summary = data.summary || {};
         successBox.textContent = `Parsed ${summary.total_rows || 0} rows with ${summary.matched_ok || 0} matches. Redirecting to preview...`;
         successBox.classList.remove('d-none');
+        window.SufuraMotion?.animateIn(successBox);
         if (data.redirect_url) {
             window.location = data.redirect_url;
         }
     } catch (error) {
         errorBox.textContent = error.message;
         errorBox.classList.remove('d-none');
+        window.SufuraMotion?.animateIn(errorBox);
     }
 });
 </script>

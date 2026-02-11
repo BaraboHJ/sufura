@@ -197,6 +197,8 @@ $user = Auth::user();
             statusBadge.className = 'badge bg-success';
             statusBadge.textContent = 'OK';
 
+            window.SufuraMotion?.animateMany([currentCostEl, lastUpdatedEl, statusBadge]);
+
             if (historyBody) {
                 const row = document.createElement('tr');
                 row.innerHTML = `
@@ -208,6 +210,7 @@ $user = Auth::user();
                     historyBody.innerHTML = '';
                 }
                 historyBody.prepend(row);
+                window.SufuraMotion?.animateIn(row);
             }
 
             form.reset();

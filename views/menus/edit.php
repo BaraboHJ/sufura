@@ -370,6 +370,7 @@ const csrfToken = '<?= Csrf::token() ?>';
 const currency = '<?= htmlspecialchars($currency, ENT_QUOTES) ?>';
 const menuType = '<?= htmlspecialchars($menuType, ENT_QUOTES) ?>';
 let lastMenuCostPerPax = <?= (int) ($report['menu_cost_per_pax_minor'] ?? 0) ?>;
+const motion = window.SufuraMotion;
 
 const formatMoney = (minor) => {
     if (minor === null || typeof minor === 'undefined') {
@@ -400,8 +401,10 @@ const refreshSummary = async () => {
     }
     const data = await res.json();
     lastMenuCostPerPax = data.menu_cost_per_pax_minor || 0;
-    document.getElementById('menu-cost-per-pax').textContent = formatMoney(data.menu_cost_per_pax_minor);
-    document.getElementById('menu-total-cost').textContent = formatMoney(data.totals.total_cost_minor);
+    const menuCostPerPaxEl = document.getElementById('menu-cost-per-pax');
+    const menuTotalCostEl = document.getElementById('menu-total-cost');
+    menuCostPerPaxEl.textContent = formatMoney(data.menu_cost_per_pax_minor);
+    menuTotalCostEl.textContent = formatMoney(data.totals.total_cost_minor);
     if (menuType === 'package') {
         document.getElementById('revenue-min').textContent = formatMoney(data.totals.revenue_min_minor);
         document.getElementById('revenue-max').textContent = formatMoney(data.totals.revenue_max_minor);
@@ -430,6 +433,7 @@ const refreshSummary = async () => {
         });
     }
     updateRecommendations();
+    motion?.animateMany([menuCostPerPaxEl, menuTotalCostEl]);
 };
 
 document.getElementById('pax-count').addEventListener('input', refreshSummary);
@@ -552,7 +556,12 @@ document.querySelectorAll('.dish-search').forEach((input) => {
         const container = wrapper.querySelector('.dish-results');
         const hidden = wrapper.querySelector('.dish-id');
         hidden.value = '';
-        const params = new URLSearchParams();
+        if (!categoryId) {
+            container.innerHTML = '';
+            motion?.animateIn(container);
+            return;
+        }
+        const params = new URLSearchParams({ category_id: categoryId });
         if (query) {
             params.set('query', query);
         }
@@ -572,10 +581,24 @@ document.querySelectorAll('.dish-search').forEach((input) => {
                 input.value = dish.name;
                 hidden.value = dish.id;
                 container.innerHTML = '';
+                motion?.animateIn(input);
             });
             container.appendChild(button);
         });
+        motion?.animateMany(container.querySelectorAll('.list-group-item'));
     };
+
+    categorySelect.addEventListener('change', () => {
+        wrapper.querySelector('.dish-id').value = '';
+        input.value = '';
+        input.disabled = !categorySelect.value;
+        input.placeholder = categorySelect.value ? 'Start typing dish name...' : 'Select category first';
+        wrapper.querySelector('.dish-results').innerHTML = '';
+        motion?.animateIn(input);
+        if (categorySelect.value) {
+            fetchResults();
+        }
+    });
 
     input.addEventListener('focus', () => {
         fetchResults();

@@ -68,6 +68,7 @@ const renderSummary = (menus) => {
             </div>
         `;
     }).join('');
+    window.SufuraMotion?.animateMany(summaryEl.querySelectorAll('.card'));
 };
 
 const renderBreakdown = (groups, items, menus) => {
@@ -124,6 +125,7 @@ const renderBreakdown = (groups, items, menus) => {
             </div>
         `;
     }).join('');
+    window.SufuraMotion?.animateMany(breakdownEl.querySelectorAll('.card, .list-group-item'));
 };
 
 const loadCompare = async () => {

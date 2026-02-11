@@ -257,6 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const csrfToken = table.dataset.csrf;
+    const motion = window.SufuraMotion;
     const dishId = table.dataset.dishId;
 
     const statusMap = {
@@ -341,6 +342,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const statusConfig = statusMap[summary.status] || statusMap.incomplete_missing_ingredient_cost;
         statusBadge.className = `badge ${statusConfig.className}`;
         statusBadge.textContent = statusConfig.label;
+        motion?.animateMany([totalCostEl, costPerServingEl, completenessEl, statusBadge]);
     };
 
     const fetchJson = async (url, options = {}) => {
@@ -358,6 +360,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return null;
         }
         select.innerHTML = '<option value="">Loading...</option>';
+        motion?.animateIn(select);
         const uoms = await fetchJson(`/api/uoms?uom_set_id=${uomSetId}`);
         select.innerHTML = '';
         let selectedId = null;
@@ -370,6 +373,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             select.appendChild(option);
         });
+        motion?.animateIn(select);
         const dataSelected = select.dataset.selected;
         if (dataSelected) {
             select.value = dataSelected;
@@ -409,6 +413,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 lineCostEl.textContent = data.line_breakdown.line_cost_minor === null
                     ? '—'
                     : formatMoney(data.line_breakdown.line_cost_minor);
+                motion?.animateIn(lineCostEl);
             }
         }
         updateSummary(data.summary);
@@ -445,6 +450,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </td>
         `;
         tbody.appendChild(row);
+        motion?.animateIn(row);
         attachRowEvents(row);
         row.querySelector('.ingredient-input')?.focus();
     };
@@ -615,6 +621,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     emptyRow.className = 'empty-row';
                     emptyRow.innerHTML = '<td colspan="6" class="text-center text-muted py-4">Add ingredients to start costing.</td>';
                     tbody.appendChild(emptyRow);
+                    motion?.animateIn(emptyRow);
                 }
                 await applySortOrders();
             });
