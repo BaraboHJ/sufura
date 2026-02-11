@@ -33,6 +33,17 @@ unset($_SESSION['form_errors'], $_SESSION['form_values']);
                     <input type="text" name="name" class="form-control" required value="<?= htmlspecialchars($formValues['name'] ?? '', ENT_QUOTES) ?>">
                 </div>
                 <div class="mb-3">
+                    <label class="form-label">Category</label>
+                    <select name="category_id" class="form-select" required>
+                        <option value="">Select category</option>
+                        <?php foreach ($categories as $category): ?>
+                            <option value="<?= (int) $category['id'] ?>" <?= (int) ($formValues['category_id'] ?? 0) === (int) $category['id'] ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($category['name'], ENT_QUOTES) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="mb-3">
                     <label class="form-label">Description</label>
                     <textarea name="description" class="form-control" rows="3"><?= htmlspecialchars($formValues['description'] ?? '', ENT_QUOTES) ?></textarea>
                 </div>

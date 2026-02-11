@@ -44,6 +44,7 @@ $statusLabels = [
                                 <th><input type="checkbox" id="dish-select-all"></th>
                             <?php endif; ?>
                             <th>Name</th>
+                            <th>Category</th>
                             <th>Yield servings</th>
                             <th>Cost per serving</th>
                             <th>Completeness</th>
@@ -54,7 +55,7 @@ $statusLabels = [
                     <tbody>
                         <?php if (empty($dishRows)): ?>
                             <tr>
-                                <td colspan="<?= $canBulkDelete ? '7' : '6' ?>" class="text-center text-muted py-4">No dishes yet.</td>
+                                <td colspan="<?= $canBulkDelete ? '8' : '7' ?>" class="text-center text-muted py-4">No dishes yet.</td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($dishRows as $dish): ?>
@@ -75,6 +76,7 @@ $statusLabels = [
                                             <span class="badge bg-secondary ms-2">Inactive</span>
                                         <?php endif; ?>
                                     </td>
+                                    <td><?= htmlspecialchars($dish['category_name'] ?? '—', ENT_QUOTES) ?></td>
                                     <td><?= (int) $dish['yield_servings'] ?></td>
                                     <td><?= format_money($dish['cost_per_serving_minor'] ?? null, $currency) ?></td>
                                     <td>

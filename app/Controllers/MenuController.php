@@ -8,6 +8,7 @@ use App\Models\Menu;
 use App\Models\MenuGroup;
 use App\Models\MenuItem;
 use App\Models\Dish;
+use App\Models\DishCategory;
 use App\Services\DishCost;
 use App\Services\MenuCost;
 use PDO;
@@ -124,6 +125,7 @@ class MenuController
         }
 
         $canLock = $menu['cost_mode'] === 'live' && $this->canLockMenu($report, $groups, $itemsWithCosts);
+        $dishCategories = DishCategory::listByOrg($this->pdo, $orgId);
 
         $pageTitle = 'Edit Menu';
         $view = __DIR__ . '/../../views/menus/edit.php';

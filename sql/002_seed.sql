@@ -16,3 +16,9 @@ INSERT IGNORE INTO uoms (org_id, uom_set_id, name, symbol, factor_to_base, is_ba
 (1, 2, 'Milliliter', 'ml', 1.000000, 1),
 (1, 2, 'Liter', 'l', 1000.000000, 0),
 (1, 3, 'Piece', 'pc', 1.000000, 1);
+
+
+INSERT IGNORE INTO dish_categories (org_id, name) VALUES
+(1, 'Appetizers'),
+(1, 'Main Course'),
+(1, 'Desserts');

@@ -58,6 +58,7 @@ $errors = $summary['errors'] ?? [];
                 <div class="fw-semibold">Required columns</div>
                 <ul class="mb-0 text-muted small">
                     <li><code>name</code></li>
+                    <li><code>category</code></li>
                     <li><code>ingredient_name_1</code></li>
                     <li><code>ingredient_quantity_1</code></li>
                 </ul>
