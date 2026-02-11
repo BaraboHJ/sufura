@@ -549,19 +549,13 @@ document.querySelectorAll('.add-item').forEach((button) => {
 });
 
 document.querySelectorAll('.dish-search').forEach((input) => {
-    let activeResults = [];
     const wrapper = input.parentElement;
     const fetchResults = async () => {
         const query = input.value.trim();
         const container = wrapper.querySelector('.dish-results');
         const hidden = wrapper.querySelector('.dish-id');
         hidden.value = '';
-        if (!categoryId) {
-            container.innerHTML = '';
-            motion?.animateIn(container);
-            return;
-        }
-        const params = new URLSearchParams({ category_id: categoryId });
+        const params = new URLSearchParams();
         if (query) {
             params.set('query', query);
         }
@@ -570,9 +564,8 @@ document.querySelectorAll('.dish-search').forEach((input) => {
             return;
         }
         const data = await res.json();
-        activeResults = data.results || [];
         container.innerHTML = '';
-        activeResults.forEach((dish) => {
+        (data.results || []).forEach((dish) => {
             const button = document.createElement('button');
             button.type = 'button';
             button.className = 'list-group-item list-group-item-action';
@@ -587,18 +580,6 @@ document.querySelectorAll('.dish-search').forEach((input) => {
         });
         motion?.animateMany(container.querySelectorAll('.list-group-item'));
     };
-
-    categorySelect.addEventListener('change', () => {
-        wrapper.querySelector('.dish-id').value = '';
-        input.value = '';
-        input.disabled = !categorySelect.value;
-        input.placeholder = categorySelect.value ? 'Start typing dish name...' : 'Select category first';
-        wrapper.querySelector('.dish-results').innerHTML = '';
-        motion?.animateIn(input);
-        if (categorySelect.value) {
-            fetchResults();
-        }
-    });
 
     input.addEventListener('focus', () => {
         fetchResults();
