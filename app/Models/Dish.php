@@ -7,6 +7,8 @@ use PDOException;
 
 class Dish
 {
+    private const DEFAULT_CATEGORY_COLUMN = 'dish_category_id';
+    private static ?string $resolvedCategoryColumn = null;
     private const CATEGORY_COLUMNS = ['category_id', 'dish_category_id'];
 
     public static function create(PDO $pdo, int $orgId, int $actorUserId, array $payload): array
