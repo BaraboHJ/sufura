@@ -6,6 +6,15 @@ use App\Core\Csrf;
     <p class="text-muted mb-0">Use admin actions and manage organization users from one place.</p>
 </div>
 
+<div class="card shadow-sm mb-4">
+    <div class="card-body d-flex flex-wrap gap-2 align-items-center">
+        <span class="text-muted small me-2">Admin sections:</span>
+        <a class="btn btn-sm btn-outline-primary" href="/admin/users">Users</a>
+        <a class="btn btn-sm btn-outline-primary" href="/admin/categories">Dish Categories</a>
+        <a class="btn btn-sm btn-outline-primary" href="/admin/uoms">UoM Management</a>
+    </div>
+</div>
+
 <div class="row g-4">
     <div class="col-lg-4">
         <div class="card shadow-sm h-100">
