@@ -134,8 +134,18 @@ class Dish
 
         $sql .= ' ORDER BY name ASC';
 
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
+    private static function isUnknownColumnError(PDOException $e): bool
+    {
+        $sqlState = (string) ($e->errorInfo[0] ?? $e->getCode());
+        $vendorCode = (int) ($e->errorInfo[1] ?? 0);
+        $message = strtolower($e->getMessage());
+
+        if ($vendorCode === 1054 || $sqlState === '42S22') {
+            return true;
+        }
+
+        return str_contains($message, 'unknown column');
+    }
 
         return $stmt->fetchAll();
     }
@@ -147,28 +157,26 @@ class Dish
         }
 
         $stmt = $pdo->prepare(
-            'SELECT COLUMN_NAME
+            'SELECT 1
              FROM information_schema.COLUMNS
              WHERE TABLE_SCHEMA = DATABASE()
                AND TABLE_NAME = :table_name
-               AND COLUMN_NAME IN (:primary_column, :legacy_column)'
+               AND COLUMN_NAME = :column_name
+             LIMIT 1'
         );
 
         if (!$stmt) {
-            self::$cachedCategoryColumn = self::FALLBACK_CATEGORY_COLUMN;
-            return self::$cachedCategoryColumn;
+            self::$resolvedCategoryColumn = self::DEFAULT_CATEGORY_COLUMN;
+            return self::$resolvedCategoryColumn;
         }
 
-        $stmt->execute([
-            'table_name' => 'dishes',
-            'primary_column' => 'dish_category_id',
-            'legacy_column' => 'category_id',
-        ]);
+        foreach (['dish_category_id', 'category_id'] as $column) {
+            if ($stmt->execute(['table_name' => 'dishes', 'column_name' => $column]) && $stmt->fetchColumn()) {
+                self::$resolvedCategoryColumn = $column;
+                return $column;
+            }
 
-        $found = $stmt->fetchAll(PDO::FETCH_COLUMN);
-        if (in_array('dish_category_id', $found, true)) {
-            self::$cachedCategoryColumn = 'dish_category_id';
-            return self::$cachedCategoryColumn;
+            $stmt->closeCursor();
         }
 
         if (in_array('category_id', $found, true)) {
