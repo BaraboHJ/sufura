@@ -19,7 +19,7 @@ $user = Auth::user();
                     <li class="nav-item"><a class="nav-link" href="/?r=menus/compare">Compare Menus</a></li>
                     <li class="nav-item"><a class="nav-link" href="/?r=imports/costs">Cost Imports</a></li>
                     <?php if ($user['role'] === 'admin'): ?>
-                        <li class="nav-item"><a class="nav-link" href="/admin/users">Admin</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/admin/users">Admin Portal</a></li>
                     <?php endif; ?>
                 <?php endif; ?>
             </ul>

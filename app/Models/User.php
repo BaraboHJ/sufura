@@ -55,6 +55,18 @@ class User
         return self::findById($pdo, $orgId, $userId) ?? [];
     }
 
+    public static function updatePassword(PDO $pdo, ?int $orgId, int $userId, string $password): void
+    {
+        $stmt = $pdo->prepare(
+            'UPDATE users SET password_hash = :password_hash WHERE org_id = :org_id AND id = :id'
+        );
+        $stmt->execute([
+            'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+            'org_id' => $orgId,
+            'id' => $userId,
+        ]);
+    }
+
     public static function validatePayload(array $payload, bool $requirePassword): array
     {
         $errors = [];
