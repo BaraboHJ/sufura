@@ -9,12 +9,13 @@ class Dish
     public static function create(PDO $pdo, int $orgId, int $actorUserId, array $payload): array
     {
         $stmt = $pdo->prepare(
-            'INSERT INTO dishes (org_id, name, description, yield_servings, active, created_at)
-             VALUES (:org_id, :name, :description, :yield_servings, :active, NOW())'
+            'INSERT INTO dishes (org_id, name, category_id, description, yield_servings, active, created_at)
+             VALUES (:org_id, :name, :category_id, :description, :yield_servings, :active, NOW())'
         );
         $stmt->execute([
             'org_id' => $orgId,
             'name' => $payload['name'],
+            'category_id' => $payload['category_id'],
             'description' => $payload['description'],
             'yield_servings' => $payload['yield_servings'] ?? 1,
             'active' => $payload['active'] ?? 1,
@@ -33,6 +34,7 @@ class Dish
         $stmt = $pdo->prepare(
             'UPDATE dishes
              SET name = :name,
+                 category_id = :category_id,
                  description = :description,
                  yield_servings = :yield_servings,
                  active = :active,
@@ -41,6 +43,7 @@ class Dish
         );
         $stmt->execute([
             'name' => $payload['name'],
+            'category_id' => $payload['category_id'],
             'description' => $payload['description'],
             'yield_servings' => $payload['yield_servings'] ?? 1,
             'active' => $payload['active'] ?? 1,
@@ -57,9 +60,10 @@ class Dish
     public static function findById(PDO $pdo, int $orgId, int $id): ?array
     {
         $stmt = $pdo->prepare(
-            'SELECT id, org_id, name, description, yield_servings, active, created_at, updated_at
-             FROM dishes
-             WHERE org_id = :org_id AND id = :id'
+            'SELECT d.id, d.org_id, d.name, d.category_id, c.name AS category_name, d.description, d.yield_servings, d.active, d.created_at, d.updated_at
+             FROM dishes d
+             JOIN dish_categories c ON c.id = d.category_id AND c.org_id = d.org_id
+             WHERE d.org_id = :org_id AND d.id = :id'
         );
         $stmt->execute(['org_id' => $orgId, 'id' => $id]);
         $row = $stmt->fetch();
@@ -69,10 +73,11 @@ class Dish
     public static function listByOrg(PDO $pdo, int $orgId): array
     {
         $stmt = $pdo->prepare(
-            'SELECT id, name, description, yield_servings, active, created_at, updated_at
-             FROM dishes
-             WHERE org_id = :org_id
-             ORDER BY name'
+            'SELECT d.id, d.name, d.category_id, c.name AS category_name, d.description, d.yield_servings, d.active, d.created_at, d.updated_at
+             FROM dishes d
+             JOIN dish_categories c ON c.id = d.category_id AND c.org_id = d.org_id
+             WHERE d.org_id = :org_id
+             ORDER BY c.name, d.name'
         );
         $stmt->execute(['org_id' => $orgId]);
         return $stmt->fetchAll();

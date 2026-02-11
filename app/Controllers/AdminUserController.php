@@ -160,6 +160,7 @@ class AdminUserController
                 'menus',
                 'dish_lines',
                 'dishes',
+                'dish_categories',
                 'cost_import_rows',
                 'cost_imports',
                 'ingredient_costs',

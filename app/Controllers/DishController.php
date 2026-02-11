@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Core\Auth;
 use App\Core\Csrf;
 use App\Models\Dish;
+use App\Models\DishCategory;
 use App\Models\DishLine;
 use App\Models\Ingredient;
 use App\Services\DishCost;
@@ -47,6 +48,8 @@ class DishController
     public function createForm(): void
     {
         Auth::requireRole(['admin', 'editor']);
+        $orgId = Auth::currentOrgId();
+        $categories = DishCategory::listByOrg($this->pdo, $orgId);
         $pageTitle = 'New Dish';
         $view = __DIR__ . '/../../views/dishes/new.php';
         require __DIR__ . '/../../views/layout.php';
@@ -120,6 +123,7 @@ class DishController
         }
 
         $lines = DishLine::listByDish($this->pdo, $orgId, $dishId);
+        $categories = DishCategory::listByOrg($this->pdo, $orgId);
         $uomSets = Ingredient::listUomSets($this->pdo, $orgId);
         $org = $this->loadOrg($orgId);
         $currency = $org['default_currency'] ?? 'USD';
@@ -497,21 +501,36 @@ class DishController
         Auth::requireLogin();
         header('Content-Type: application/json');
         $orgId = Auth::currentOrgId();
+        $categoryId = (int) ($_GET['category_id'] ?? 0);
         $query = trim($_GET['query'] ?? '');
-        if ($query === '') {
+
+        if ($categoryId <= 0) {
             echo json_encode(['results' => []]);
             return;
         }
 
-        $like = '%' . $query . '%';
-        $stmt = $this->pdo->prepare(
-            'SELECT id, name, description, yield_servings
-             FROM dishes
-             WHERE org_id = :org_id AND name LIKE :query
-             ORDER BY name
-             LIMIT 25'
-        );
-        $stmt->execute(['org_id' => $orgId, 'query' => $like]);
+        $category = DishCategory::findById($this->pdo, $orgId, $categoryId);
+        if (!$category) {
+            echo json_encode(['results' => []]);
+            return;
+        }
+
+        $sql = 'SELECT id, name, description, yield_servings, category_id
+'
+            . 'FROM dishes
+'
+            . 'WHERE org_id = :org_id AND category_id = :category_id';
+        $params = ['org_id' => $orgId, 'category_id' => $categoryId];
+
+        if ($query !== '') {
+            $sql .= ' AND name LIKE :query';
+            $params['query'] = '%' . $query . '%';
+        }
+
+        $sql .= ' ORDER BY name LIMIT 25';
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
         $results = $stmt->fetchAll();
 
         echo json_encode(['results' => $results]);
@@ -536,16 +555,32 @@ class DishController
         }
 
         $name = trim((string) ($payload['name'] ?? ''));
+        $categoryId = (int) ($payload['category_id'] ?? 0);
+
+        if ($categoryId <= 0) {
+            http_response_code(422);
+            echo json_encode(['error' => 'Category is required.']);
+            return;
+        }
+
+        $orgId = Auth::currentOrgId();
+        $category = DishCategory::findById($this->pdo, $orgId, $categoryId);
+        if (!$category) {
+            http_response_code(422);
+            echo json_encode(['error' => 'Select a valid category.']);
+            return;
+        }
+
         if ($name === '') {
             http_response_code(422);
             echo json_encode(['error' => 'Name is required.']);
             return;
         }
 
-        $orgId = Auth::currentOrgId();
         $actor = Auth::currentUser();
         $dish = Dish::create($this->pdo, $orgId, $actor['id'] ?? 0, [
             'name' => $name,
+            'category_id' => $categoryId,
             'description' => trim((string) ($payload['description'] ?? '')),
             'yield_servings' => isset($payload['yield_servings']) ? (int) $payload['yield_servings'] : 1,
             'active' => 1,
@@ -558,6 +593,7 @@ class DishController
     {
         return [
             'name' => trim($_POST['name'] ?? ''),
+            'category_id' => isset($_POST['category_id']) ? (int) $_POST['category_id'] : 0,
             'description' => trim($_POST['description'] ?? ''),
             'yield_servings' => isset($_POST['yield_servings']) ? (int) $_POST['yield_servings'] : 0,
             'active' => isset($_POST['active']) ? 1 : 0,
@@ -570,6 +606,16 @@ class DishController
 
         if ($payload['name'] === '') {
             $errors[] = 'Name is required.';
+        }
+
+        if ((int) ($payload['category_id'] ?? 0) <= 0) {
+            $errors[] = 'Category is required.';
+        } else {
+            $orgId = Auth::currentOrgId();
+            $category = DishCategory::findById($this->pdo, $orgId, (int) $payload['category_id']);
+            if (!$category) {
+                $errors[] = 'Select a valid category.';
+            }
         }
 
         if ((int) $payload['yield_servings'] <= 0) {

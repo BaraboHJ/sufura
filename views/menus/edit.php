@@ -312,9 +312,18 @@ $paxCount = $report['totals']['pax_count'] ?? null;
             <?php if (!$readOnly): ?>
                 <div class="border rounded p-3">
                     <div class="row g-2 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label">Category</label>
+                            <select class="form-select dish-category">
+                                <option value="">Select category</option>
+                                <?php foreach ($dishCategories as $category): ?>
+                                    <option value="<?= (int) $category['id'] ?>"><?= htmlspecialchars($category['name'], ENT_QUOTES) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
                         <div class="col-md-4 position-relative">
-                            <label class="form-label">Add dish</label>
-                            <input class="form-control dish-search" placeholder="Search dishes...">
+                            <label class="form-label">Dish name</label>
+                            <input class="form-control dish-search" placeholder="Select category first" disabled>
                             <input type="hidden" class="dish-id">
                             <div class="list-group position-absolute w-100 dish-results" style="z-index: 10;"></div>
                         </div>
@@ -365,6 +374,15 @@ $paxCount = $report['totals']['pax_count'] ?? null;
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Category</label>
+                    <select class="form-select" id="modal-dish-category">
+                        <option value="">Select category</option>
+                        <?php foreach ($dishCategories as $category): ?>
+                            <option value="<?= (int) $category['id'] ?>"><?= htmlspecialchars($category['name'], ENT_QUOTES) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
                 <div class="mb-3">
                     <label class="form-label">Dish name</label>
                     <input class="form-control" id="modal-dish-name">
@@ -553,9 +571,15 @@ document.querySelectorAll('.add-item').forEach((button) => {
         const card = button.closest('[data-group-id]');
         const dishIdInput = card.querySelector('.dish-id');
         const dishSearchInput = card.querySelector('.dish-search');
+        const categorySelect = card.querySelector('.dish-category');
+        const categoryId = parseInt(categorySelect.value || '0', 10);
+        if (!categoryId) {
+            alert('Please select a category first.');
+            return;
+        }
         const dishId = dishIdInput.value;
         if (!dishId) {
-            openCreateDishModal(dishSearchInput.value, async (createdDish) => {
+            openCreateDishModal(categoryId, dishSearchInput.value, async (createdDish) => {
                 if (!createdDish) return;
                 await postJson(`/api/menu-groups/${card.dataset.groupId}/items/create`, {
                     dish_id: createdDish.id,
@@ -575,16 +599,25 @@ document.querySelectorAll('.add-item').forEach((button) => {
 
 document.querySelectorAll('.dish-search').forEach((input) => {
     let activeResults = [];
-    input.addEventListener('input', async () => {
+    const wrapper = input.parentElement;
+    const card = input.closest('[data-group-id]');
+    const categorySelect = card.querySelector('.dish-category');
+
+    const fetchResults = async () => {
+        const categoryId = categorySelect.value;
         const query = input.value.trim();
-        const container = input.parentElement.querySelector('.dish-results');
-        const hidden = input.parentElement.querySelector('.dish-id');
+        const container = wrapper.querySelector('.dish-results');
+        const hidden = wrapper.querySelector('.dish-id');
         hidden.value = '';
-        if (!query) {
+        if (!categoryId) {
             container.innerHTML = '';
             return;
         }
-        const res = await fetch(`/api/dishes/search?query=${encodeURIComponent(query)}`);
+        const params = new URLSearchParams({ category_id: categoryId });
+        if (query) {
+            params.set('query', query);
+        }
+        const res = await fetch(`/api/dishes/search?${params.toString()}`);
         if (!res.ok) {
             return;
         }
@@ -603,15 +636,36 @@ document.querySelectorAll('.dish-search').forEach((input) => {
             });
             container.appendChild(button);
         });
+    };
+
+    categorySelect.addEventListener('change', () => {
+        wrapper.querySelector('.dish-id').value = '';
+        input.value = '';
+        input.disabled = !categorySelect.value;
+        input.placeholder = categorySelect.value ? 'Start typing dish name...' : 'Select category first';
+        wrapper.querySelector('.dish-results').innerHTML = '';
+        if (categorySelect.value) {
+            fetchResults();
+        }
     });
+
+    input.addEventListener('focus', () => {
+        if (categorySelect.value) {
+            fetchResults();
+        }
+    });
+
+    input.addEventListener('input', fetchResults);
 });
 
-const openCreateDishModal = (name, onSuccess) => {
+const openCreateDishModal = (categoryId, name, onSuccess) => {
     const modalEl = document.getElementById('createDishModal');
     const modal = new bootstrap.Modal(modalEl);
+    const categoryInput = document.getElementById('modal-dish-category');
     const nameInput = document.getElementById('modal-dish-name');
     const descInput = document.getElementById('modal-dish-description');
     const yieldInput = document.getElementById('modal-dish-yield');
+    categoryInput.value = categoryId || '';
     nameInput.value = name || '';
     descInput.value = '';
     yieldInput.value = 1;
@@ -619,6 +673,7 @@ const openCreateDishModal = (name, onSuccess) => {
     const submitBtn = document.getElementById('create-dish-submit');
     const handler = async () => {
         const payload = {
+            category_id: parseInt(categoryInput.value || '0', 10),
             name: nameInput.value,
             description: descInput.value,
             yield_servings: parseInt(yieldInput.value || '1', 10),

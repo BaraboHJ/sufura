@@ -97,17 +97,32 @@ CREATE TABLE IF NOT EXISTS ingredient_costs (
     CONSTRAINT fk_ingredient_costs_uom FOREIGN KEY (purchase_uom_id) REFERENCES uoms(id)
 ) ENGINE=InnoDB;
 
+
+CREATE TABLE IF NOT EXISTS dish_categories (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    org_id BIGINT UNSIGNED NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT NULL,
+    INDEX idx_dish_categories_org (org_id),
+    UNIQUE KEY uniq_dish_categories_org_name (org_id, name),
+    CONSTRAINT fk_dish_categories_org FOREIGN KEY (org_id) REFERENCES organizations(id)
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS dishes (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     org_id BIGINT UNSIGNED NOT NULL,
     name VARCHAR(255) NOT NULL,
+    category_id BIGINT UNSIGNED NOT NULL,
     description TEXT NULL,
     yield_servings INT NOT NULL DEFAULT 1,
     active TINYINT(1) NOT NULL DEFAULT 1,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NULL DEFAULT NULL,
     INDEX idx_dishes_org (org_id),
-    CONSTRAINT fk_dishes_org FOREIGN KEY (org_id) REFERENCES organizations(id)
+    INDEX idx_dishes_category (category_id),
+    CONSTRAINT fk_dishes_org FOREIGN KEY (org_id) REFERENCES organizations(id),
+    CONSTRAINT fk_dishes_category FOREIGN KEY (category_id) REFERENCES dish_categories(id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS dish_lines (

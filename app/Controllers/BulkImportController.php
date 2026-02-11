@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Core\Auth;
 use App\Core\Csrf;
 use App\Models\Dish;
+use App\Models\DishCategory;
 use App\Models\DishLine;
 use App\Models\Ingredient;
 use PDO;
@@ -193,6 +194,7 @@ class BulkImportController
         $output = fopen('php://output', 'w');
         fputcsv($output, [
             'name',
+            'category',
             'description',
             'yield_servings',
             'active',
@@ -208,6 +210,7 @@ class BulkImportController
         ]);
         fputcsv($output, [
             'Example Dish',
+            'Main Course',
             'Optional description',
             '10',
             '1',
@@ -281,6 +284,9 @@ class BulkImportController
         if (!isset($columnMap['name'])) {
             $errors[] = 'Missing required column: name';
         }
+        if (!isset($columnMap['category'])) {
+            $errors[] = 'Missing required column: category';
+        }
         if (empty($ingredientColumns)) {
             $errors[] = 'Missing ingredient columns. Use ingredient_name_1 and ingredient_quantity_1 at minimum.';
         }
@@ -304,6 +310,11 @@ class BulkImportController
         $dishLineCounts = [];
         $ingredientMap = $this->ingredientMap($orgId);
         $uomMap = $this->uomMapBySet($orgId);
+        $categories = DishCategory::listByOrg($this->pdo, $orgId);
+        $categoryMap = [];
+        foreach ($categories as $category) {
+            $categoryMap[$this->normalizeName($category['name'])] = (int) $category['id'];
+        }
 
         while (($data = fgetcsv($handle)) !== false) {
             $rowNum++;
@@ -312,6 +323,7 @@ class BulkImportController
             }
 
             $name = trim((string) ($data[$columnMap['name']] ?? ''));
+            $categoryName = trim((string) ($this->getColumnValue($data, $columnMap, 'category') ?? ''));
             $description = trim((string) ($this->getColumnValue($data, $columnMap, 'description') ?? ''));
             $yieldRaw = $this->getColumnValue($data, $columnMap, 'yield_servings');
             $activeRaw = $this->getColumnValue($data, $columnMap, 'active');
@@ -319,6 +331,19 @@ class BulkImportController
 
             if ($name === '') {
                 $errors[] = "Row {$rowNum}: Name is required.";
+                $skipped++;
+                continue;
+            }
+
+            if ($categoryName === '') {
+                $errors[] = "Row {$rowNum}: Category is required.";
+                $skipped++;
+                continue;
+            }
+
+            $categoryId = $categoryMap[$this->normalizeName($categoryName)] ?? null;
+            if (!$categoryId) {
+                $errors[] = "Row {$rowNum}: Category \"{$categoryName}\" not found.";
                 $skipped++;
                 continue;
             }
@@ -341,6 +366,7 @@ class BulkImportController
                 $active = $this->parseBoolean($activeRaw, true) ? 1 : 0;
                 $dish = Dish::create($this->pdo, $orgId, $actor['id'] ?? 0, [
                     'name' => $name,
+                    'category_id' => $categoryId,
                     'description' => $description,
                     'yield_servings' => $yieldServings,
                     'active' => $active,

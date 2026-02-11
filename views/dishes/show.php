@@ -32,6 +32,7 @@ $user = Auth::user();
 <div class="d-flex justify-content-between align-items-start mb-4">
     <div>
         <h1 class="h4 mb-1"><?= htmlspecialchars($dish['name'], ENT_QUOTES) ?></h1>
+        <div class="text-muted">Category: <?= htmlspecialchars($dish['category_name'] ?? '—', ENT_QUOTES) ?></div>
         <div class="text-muted">Yield servings: <?= (int) $dish['yield_servings'] ?></div>
         <?php if (!empty($dish['description'])): ?>
             <div class="text-muted mt-2"><?= nl2br(htmlspecialchars($dish['description'], ENT_QUOTES)) ?></div>
