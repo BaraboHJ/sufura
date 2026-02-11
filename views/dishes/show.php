@@ -1,149 +1,51 @@
 <?php
-use App\Core\Auth;
-use App\Core\Csrf;
-
-function format_money(?int $minor, string $currency): string
-{
-    if ($minor === null) {
-        return '—';
-    }
-    return sprintf('%s %s', $currency, number_format($minor / 100, 2));
-}
-
-function format_cost_per_base(?int $costX10000, string $currency): string
-{
-    if ($costX10000 === null) {
-        return '—';
-    }
-    return sprintf('%s %s', $currency, number_format($costX10000 / 1000000, 4));
-}
-
-$statusLabels = [
-    'complete' => ['label' => 'Complete', 'class' => 'bg-success'],
-    'incomplete_missing_ingredient_cost' => ['label' => 'Missing costs', 'class' => 'bg-warning text-dark'],
-    'invalid_units' => ['label' => 'Invalid units', 'class' => 'bg-danger'],
-];
-
-$status = $summary['status'] ?? 'incomplete_missing_ingredient_cost';
-$statusConfig = $statusLabels[$status] ?? $statusLabels['incomplete_missing_ingredient_cost'];
-$knownCount = (int) ($summary['lines_count'] ?? 0) - (int) ($summary['unknown_cost_lines_count'] ?? 0);
-$user = Auth::user();
+$currency = $currency ?? 'USD';
+$summary = $summary ?? [];
+$breakdown = $breakdown ?? [];
 ?>
-<div class="d-flex justify-content-between align-items-start mb-4">
+<div class="d-flex justify-content-between align-items-center mb-3">
     <div>
-        <h1 class="h4 mb-1"><?= htmlspecialchars($dish['name'], ENT_QUOTES) ?></h1>
-        <div class="text-muted">Category: <?= htmlspecialchars($dish['category_name'] ?? '—', ENT_QUOTES) ?></div>
-        <div class="text-muted">Yield servings: <?= (int) $dish['yield_servings'] ?></div>
-        <?php if (!empty($dish['description'])): ?>
-            <div class="text-muted mt-2"><?= nl2br(htmlspecialchars($dish['description'], ENT_QUOTES)) ?></div>
-        <?php endif; ?>
+        <h1 class="h3 mb-1"><?= htmlspecialchars((string) ($dish['name'] ?? 'Dish')) ?></h1>
+        <p class="text-muted mb-0"><?= htmlspecialchars((string) ($dish['category_name'] ?? '')) ?></p>
     </div>
     <div class="d-flex gap-2">
-        <?php if ($user && ($user['role'] ?? '') === 'admin'): ?>
-            <form method="post" action="/dishes/<?= (int) $dish['id'] ?>/delete" onsubmit="return confirm('Delete this dish? This cannot be undone.');">
-                <?= Csrf::input() ?>
-                <button class="btn btn-outline-danger" type="submit">Delete</button>
-            </form>
-        <?php endif; ?>
-        <a class="btn btn-outline-secondary" href="/dishes/<?= (int) $dish['id'] ?>/edit">Edit</a>
         <a class="btn btn-outline-secondary" href="/dishes">Back</a>
+        <a class="btn btn-primary" href="/dishes/<?= (int) $dish['id'] ?>/edit">Edit</a>
     </div>
 </div>
 
-<div class="row g-3 mb-4">
-    <div class="col-md-4">
-        <div class="card shadow-sm h-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h2 class="h6 mb-0">Status</h2>
-                    <span class="badge <?= $statusConfig['class'] ?>"><?= $statusConfig['label'] ?></span>
-                </div>
-                <div class="mt-3 text-muted small">
-                    <?php if ((int) ($summary['lines_count'] ?? 0) > 0): ?>
-                        <?= $knownCount ?>/<?= (int) $summary['lines_count'] ?> ingredients costed
-                    <?php else: ?>
-                        No recipe lines yet.
-                    <?php endif; ?>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card shadow-sm h-100">
-            <div class="card-body">
-                <h2 class="h6">Total cost</h2>
-                <div class="display-6 fw-semibold">
-                    <?= format_money($summary['total_cost_minor'] ?? null, $currency) ?>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card shadow-sm h-100">
-            <div class="card-body">
-                <h2 class="h6">Cost per serving</h2>
-                <div class="display-6 fw-semibold">
-                    <?= format_money($summary['cost_per_serving_minor'] ?? null, $currency) ?>
-                </div>
-            </div>
-        </div>
-    </div>
+<div class="row g-3 mb-3">
+    <div class="col-md-3"><div class="card"><div class="card-body"><div class="text-muted small">Yield</div><div class="h5 mb-0"><?= (int) ($dish['yield_servings'] ?? 1) ?> servings</div></div></div></div>
+    <div class="col-md-3"><div class="card"><div class="card-body"><div class="text-muted small">Status</div><div class="h5 mb-0"><?= ((int) ($dish['active'] ?? 0) === 1) ? 'Active' : 'Inactive' ?></div></div></div></div>
+    <div class="col-md-3"><div class="card"><div class="card-body"><div class="text-muted small">Total cost</div><div class="h5 mb-0"><?= htmlspecialchars($currency) ?> <?= number_format(((int) ($summary['total_cost_x10000'] ?? 0)) / 10000, 2) ?></div></div></div></div>
+    <div class="col-md-3"><div class="card"><div class="card-body"><div class="text-muted small">Cost per serving</div><div class="h5 mb-0"><?= htmlspecialchars($currency) ?> <?= number_format(((int) ($summary['cost_per_serving_x10000'] ?? 0)) / 10000, 2) ?></div></div></div></div>
 </div>
 
-<?php if (!empty($missingIngredients)): ?>
-    <div class="alert alert-warning">
-        <div class="fw-semibold mb-2">Missing ingredient costs</div>
-        <ul class="mb-0">
-            <?php foreach ($missingIngredients as $line): ?>
-                <li>
-                    <a href="/ingredients/<?= (int) $line['ingredient_id'] ?>" class="text-decoration-none">
-                        <?= htmlspecialchars($line['ingredient_name'], ENT_QUOTES) ?>
-                    </a>
-                </li>
-            <?php endforeach; ?>
-        </ul>
+<div class="card shadow-sm mb-3">
+    <div class="card-body">
+        <h2 class="h6">Description</h2>
+        <p class="mb-0"><?= nl2br(htmlspecialchars((string) ($dish['description'] ?? 'No description.'))) ?></p>
     </div>
-<?php endif; ?>
+</div>
 
 <div class="card shadow-sm">
-    <div class="card-header bg-body-secondary d-flex justify-content-between align-items-center">
-        <h2 class="h6 mb-0">Cost breakdown</h2>
-        <a class="btn btn-sm btn-outline-secondary" href="/api/dishes/<?= (int) $dish['id'] ?>/cost_breakdown">Download JSON</a>
-    </div>
+    <div class="card-header bg-white"><strong>Ingredient cost breakdown</strong></div>
     <div class="table-responsive">
-        <table class="table table-striped mb-0">
-            <thead class="table-secondary">
-                <tr>
-                    <th>Ingredient</th>
-                    <th>Qty</th>
-                    <th>UoM</th>
-                    <th>Qty in base</th>
-                    <th>Cost per base</th>
-                    <th>Line cost</th>
-                    <th>Last cost update</th>
-                </tr>
-            </thead>
+        <table class="table mb-0 align-middle">
+            <thead><tr><th>Ingredient</th><th>Qty</th><th>UOM</th><th>Line cost</th></tr></thead>
             <tbody>
-                <?php if (empty($breakdown)): ?>
+            <?php if (empty($breakdown)): ?>
+                <tr><td colspan="4" class="text-center text-muted py-4">No ingredients added yet.</td></tr>
+            <?php else: ?>
+                <?php foreach ($breakdown as $line): ?>
                     <tr>
-                        <td colspan="7" class="text-center text-muted py-4">No recipe lines yet.</td>
+                        <td><?= htmlspecialchars((string) ($line['ingredient_name'] ?? '')) ?></td>
+                        <td><?= htmlspecialchars((string) ($line['quantity'] ?? '')) ?></td>
+                        <td><?= htmlspecialchars((string) ($line['uom_name'] ?? '')) ?></td>
+                        <td><?= htmlspecialchars($currency) ?> <?= number_format(((int) ($line['line_cost_x10000'] ?? 0)) / 10000, 2) ?></td>
                     </tr>
-                <?php else: ?>
-                    <?php foreach ($breakdown as $line): ?>
-                        <tr>
-                            <td><?= htmlspecialchars($line['ingredient_name'], ENT_QUOTES) ?></td>
-                            <td><?= htmlspecialchars((string) $line['quantity'], ENT_QUOTES) ?></td>
-                            <td><?= htmlspecialchars($line['uom_symbol'], ENT_QUOTES) ?></td>
-                            <td>
-                                <?= number_format($line['qty_in_base'], 4) ?>
-                                <?= htmlspecialchars($line['base_uom_symbol'], ENT_QUOTES) ?>
-                            </td>
-                            <td><?= format_cost_per_base($line['cost_per_base_x10000'], $currency) ?></td>
-                            <td><?= $line['line_cost_minor'] !== null ? format_money((int) $line['line_cost_minor'], $currency) : '—' ?></td>
-                            <td><?= $line['cost_effective_at'] ? htmlspecialchars($line['cost_effective_at'], ENT_QUOTES) : '—' ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
+                <?php endforeach; ?>
+            <?php endif; ?>
             </tbody>
         </table>
     </div>
