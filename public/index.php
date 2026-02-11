@@ -137,9 +137,23 @@ $router->get('/imports/costs/:id', [$importController, 'show']);
 $router->post('/api/imports/costs/upload', [$importController, 'upload']);
 $router->post('/api/imports/costs/:id/confirm', [$importController, 'confirm']);
 
-$route = $_GET['r'] ?? null;
-$path = $route ? '/' . ltrim($route, '/') : parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
-$path = $path ?: '/';
+$route = isset($_GET['r']) ? trim((string) $_GET['r']) : '';
+
+if ($route !== '') {
+    $path = '/' . ltrim($route, '/');
+} else {
+    $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+    $requestPath = is_string($requestPath) ? $requestPath : '/';
+
+    $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+    if ($scriptName !== '' && strncmp($requestPath, $scriptName, strlen($scriptName)) === 0) {
+        $requestPath = substr($requestPath, strlen($scriptName));
+    }
+
+    $path = '/' . ltrim($requestPath, '/');
+}
+
+$path = $path !== '' ? $path : '/';
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
