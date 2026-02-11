@@ -17,7 +17,9 @@ function format_money_input(?int $minor): string
     return number_format($minor / 100, 2, '.', '');
 }
 
-$readOnly = ($menu['cost_mode'] ?? 'live') === 'locked';
+$viewOnly = $viewOnly ?? false;
+$isLocked = ($menu['cost_mode'] ?? 'live') === 'locked';
+$readOnly = $viewOnly || $isLocked;
 $menuType = $menu['menu_type'] ?? 'package';
 $paxCount = $report['totals']['pax_count'] ?? null;
 ?>
@@ -27,18 +29,22 @@ $paxCount = $report['totals']['pax_count'] ?? null;
         <h1 class="h3 mb-1"><?= htmlspecialchars($menu['name'], ENT_QUOTES) ?></h1>
         <p class="text-muted mb-0">
             Menu builder with costing and revenue analytics.
-            <?= $readOnly ? 'Costs are locked.' : 'Live costs.' ?>
+            <?= $viewOnly ? 'Viewing only.' : ($isLocked ? 'Costs are locked.' : 'Live costs.') ?>
         </p>
     </div>
     <div class="d-flex gap-2">
-        <form method="post" action="/menus/<?= (int) $menu['id'] ?>/duplicate">
-            <?= Csrf::input() ?>
-            <button class="btn btn-outline-secondary" type="submit">Duplicate menu</button>
-        </form>
-        <?php if ($readOnly): ?>
-            <button class="btn btn-warning" id="unlock-menu" type="button">Unlock</button>
+        <?php if ($viewOnly): ?>
+            <a class="btn btn-primary" href="/menus/<?= (int) $menu['id'] ?>/edit">Edit</a>
         <?php else: ?>
-            <button class="btn btn-dark" id="lock-menu" type="button" <?= $canLock ? '' : 'disabled' ?>>Lock costs for quoting</button>
+            <form method="post" action="/menus/<?= (int) $menu['id'] ?>/duplicate">
+                <?= Csrf::input() ?>
+                <button class="btn btn-outline-secondary" type="submit">Duplicate menu</button>
+            </form>
+            <?php if ($isLocked): ?>
+                <button class="btn btn-warning" id="unlock-menu" type="button">Unlock</button>
+            <?php else: ?>
+                <button class="btn btn-dark" id="lock-menu" type="button" <?= $canLock ? '' : 'disabled' ?>>Lock costs for quoting</button>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>
@@ -312,18 +318,9 @@ $paxCount = $report['totals']['pax_count'] ?? null;
             <?php if (!$readOnly): ?>
                 <div class="border rounded p-3">
                     <div class="row g-2 align-items-end">
-                        <div class="col-md-3">
-                            <label class="form-label">Category</label>
-                            <select class="form-select dish-category">
-                                <option value="">Select category</option>
-                                <?php foreach ($dishCategories as $category): ?>
-                                    <option value="<?= (int) $category['id'] ?>"><?= htmlspecialchars($category['name'], ENT_QUOTES) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="col-md-4 position-relative">
+                        <div class="col-md-6 position-relative">
                             <label class="form-label">Dish name</label>
-                            <input class="form-control dish-search" placeholder="Select category first" disabled>
+                            <input class="form-control dish-search" placeholder="Start typing dish name...">
                             <input type="hidden" class="dish-id">
                             <div class="list-group position-absolute w-100 dish-results" style="z-index: 10;"></div>
                         </div>
@@ -366,43 +363,6 @@ $paxCount = $report['totals']['pax_count'] ?? null;
     </div>
 <?php endif; ?>
 
-<div class="modal fade" id="createDishModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Create dish</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label">Category</label>
-                    <select class="form-select" id="modal-dish-category">
-                        <option value="">Select category</option>
-                        <?php foreach ($dishCategories as $category): ?>
-                            <option value="<?= (int) $category['id'] ?>"><?= htmlspecialchars($category['name'], ENT_QUOTES) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Dish name</label>
-                    <input class="form-control" id="modal-dish-name">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Description</label>
-                    <textarea class="form-control" id="modal-dish-description" rows="3"></textarea>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Yield servings</label>
-                    <input class="form-control" id="modal-dish-yield" type="number" min="1" value="1">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
-                <button class="btn btn-primary" type="button" id="create-dish-submit">Create dish</button>
-            </div>
-        </div>
-    </div>
-</div>
 
 <script>
 const menuId = <?= (int) $menu['id'] ?>;
@@ -570,22 +530,9 @@ document.querySelectorAll('.add-item').forEach((button) => {
     button.addEventListener('click', async () => {
         const card = button.closest('[data-group-id]');
         const dishIdInput = card.querySelector('.dish-id');
-        const dishSearchInput = card.querySelector('.dish-search');
-        const categorySelect = card.querySelector('.dish-category');
-        const categoryId = parseInt(categorySelect.value || '0', 10);
-        if (!categoryId) {
-            alert('Please select a category first.');
-            return;
-        }
         const dishId = dishIdInput.value;
         if (!dishId) {
-            openCreateDishModal(categoryId, dishSearchInput.value, async (createdDish) => {
-                if (!createdDish) return;
-                await postJson(`/api/menu-groups/${card.dataset.groupId}/items/create`, {
-                    dish_id: createdDish.id,
-                });
-                location.reload();
-            });
+            alert('Please select an existing dish from the search results.');
             return;
         }
         const data = await postJson(`/api/menu-groups/${card.dataset.groupId}/items/create`, {
@@ -600,20 +547,12 @@ document.querySelectorAll('.add-item').forEach((button) => {
 document.querySelectorAll('.dish-search').forEach((input) => {
     let activeResults = [];
     const wrapper = input.parentElement;
-    const card = input.closest('[data-group-id]');
-    const categorySelect = card.querySelector('.dish-category');
-
     const fetchResults = async () => {
-        const categoryId = categorySelect.value;
         const query = input.value.trim();
         const container = wrapper.querySelector('.dish-results');
         const hidden = wrapper.querySelector('.dish-id');
         hidden.value = '';
-        if (!categoryId) {
-            container.innerHTML = '';
-            return;
-        }
-        const params = new URLSearchParams({ category_id: categoryId });
+        const params = new URLSearchParams();
         if (query) {
             params.set('query', query);
         }
@@ -638,54 +577,13 @@ document.querySelectorAll('.dish-search').forEach((input) => {
         });
     };
 
-    categorySelect.addEventListener('change', () => {
-        wrapper.querySelector('.dish-id').value = '';
-        input.value = '';
-        input.disabled = !categorySelect.value;
-        input.placeholder = categorySelect.value ? 'Start typing dish name...' : 'Select category first';
-        wrapper.querySelector('.dish-results').innerHTML = '';
-        if (categorySelect.value) {
-            fetchResults();
-        }
-    });
-
     input.addEventListener('focus', () => {
-        if (categorySelect.value) {
-            fetchResults();
-        }
+        fetchResults();
     });
 
     input.addEventListener('input', fetchResults);
 });
 
-const openCreateDishModal = (categoryId, name, onSuccess) => {
-    const modalEl = document.getElementById('createDishModal');
-    const modal = new bootstrap.Modal(modalEl);
-    const categoryInput = document.getElementById('modal-dish-category');
-    const nameInput = document.getElementById('modal-dish-name');
-    const descInput = document.getElementById('modal-dish-description');
-    const yieldInput = document.getElementById('modal-dish-yield');
-    categoryInput.value = categoryId || '';
-    nameInput.value = name || '';
-    descInput.value = '';
-    yieldInput.value = 1;
-    modal.show();
-    const submitBtn = document.getElementById('create-dish-submit');
-    const handler = async () => {
-        const payload = {
-            category_id: parseInt(categoryInput.value || '0', 10),
-            name: nameInput.value,
-            description: descInput.value,
-            yield_servings: parseInt(yieldInput.value || '1', 10),
-        };
-        const data = await postJson('/api/dishes/create', payload);
-        modal.hide();
-        if (data && onSuccess) {
-            onSuccess(data.dish);
-        }
-    };
-    submitBtn.addEventListener('click', handler, { once: true });
-};
 
 document.getElementById('lock-menu')?.addEventListener('click', async () => {
     const data = await postJson(`/api/menus/${menuId}/lock`, {});

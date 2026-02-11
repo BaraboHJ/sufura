@@ -124,10 +124,11 @@ class MenuController
             $itemsByGroup[$item['menu_group_id']][] = $item;
         }
 
-        $canLock = $menu['cost_mode'] === 'live' && $this->canLockMenu($report, $groups, $itemsWithCosts);
+        $viewOnly = ($_GET['mode'] ?? '') === 'view';
+        $canLock = !$viewOnly && $menu['cost_mode'] === 'live' && $this->canLockMenu($report, $groups, $itemsWithCosts);
         $dishCategories = DishCategory::listByOrg($this->pdo, $orgId);
 
-        $pageTitle = 'Edit Menu';
+        $pageTitle = $viewOnly ? 'View Menu' : 'Edit Menu';
         $view = __DIR__ . '/../../views/menus/edit.php';
         require __DIR__ . '/../../views/layout.php';
     }
