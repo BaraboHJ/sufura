@@ -108,21 +108,32 @@ class Dish
 
     public static function searchByOrg(PDO $pdo, int $orgId, int $categoryId = 0, string $query = ''): array
     {
-        foreach (self::CATEGORY_COLUMNS as $column) {
-            if (self::columnExists($pdo, $column) && self::supportsCategoryQuery($pdo, $column)) {
-                return $column;
-            }
-        }
+        return self::runSelectWithCategoryColumn(
+            $pdo,
+            static function (string $categoryColumn) use ($pdo, $orgId, $categoryId, $query): array {
+                $sql = "SELECT id, name, description, yield_servings, {$categoryColumn} AS category_id
+                        FROM dishes
+                        WHERE org_id = :org_id";
+                $params = ['org_id' => $orgId];
 
-        foreach (self::CATEGORY_COLUMNS as $column) {
-            if (self::supportsCategoryQuery($pdo, $column)) {
-                return $column;
-            }
-        }
+                if ($categoryId > 0) {
+                    $sql .= ' AND ' . $categoryColumn . ' = :category_id';
+                    $params['category_id'] = $categoryId;
+                }
 
-        // Fallback for databases where metadata and probe queries are both restricted.
-        // Prefer the newer schema column so reads/writes still work in modern deployments.
-        return 'dish_category_id';
+                if ($query !== '') {
+                    $sql .= ' AND name LIKE :query';
+                    $params['query'] = '%' . $query . '%';
+                }
+
+                $sql .= ' ORDER BY name';
+
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute($params);
+
+                return $stmt->fetchAll();
+            }
+        );
     }
 
     /**
