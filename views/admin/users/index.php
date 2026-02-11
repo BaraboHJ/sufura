@@ -6,7 +6,10 @@ use App\Core\Csrf;
         <h1 class="h4 mb-0">User Management</h1>
         <p class="text-muted mb-0">Manage roles and access for your organization.</p>
     </div>
-    <a class="btn btn-primary" href="/admin/users/new">Add User</a>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary" href="/admin/uoms">Manage UoMs</a>
+        <a class="btn btn-primary" href="/admin/users/new">Add User</a>
+    </div>
 </div>
 
 <div class="alert alert-info d-flex justify-content-between align-items-center">
