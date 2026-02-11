@@ -34,19 +34,21 @@ use App\Core\Csrf;
                         </div>
 
                         <div class="table-responsive">
-                            <table class="table table-striped align-middle mb-0">
+                            <table class="table table-striped align-middle mb-0" data-uom-table>
                                 <thead class="table-secondary">
                                     <tr>
                                         <th style="width: 30%;">Name</th>
                                         <th style="width: 20%;">Symbol</th>
                                         <th style="width: 30%;">Factor to Base</th>
                                         <th style="width: 20%;">Base UoM</th>
+                                        <th style="width: 1%;"></th>
                                     </tr>
                                 </thead>
-                                <tbody>
+                                <tbody data-uom-rows>
                                     <?php foreach ($set['uoms'] as $uom): ?>
                                         <tr>
                                             <td>
+                                                <input type="hidden" data-uom-id-input name="uoms[<?= (int) $uom['id'] ?>][id]" value="<?= (int) $uom['id'] ?>">
                                                 <input
                                                     class="form-control form-control-sm"
                                                     type="text"
@@ -86,13 +88,17 @@ use App\Core\Csrf;
                                                     aria-label="Set <?= htmlspecialchars($uom['name'], ENT_QUOTES) ?> as base UoM"
                                                 >
                                             </td>
+                                            <td class="text-end">
+                                                <button type="button" class="btn btn-sm btn-outline-danger" data-remove-uom>&times;</button>
+                                            </td>
                                         </tr>
                                     <?php endforeach; ?>
                                 </tbody>
                             </table>
                         </div>
 
-                        <div class="mt-3 d-flex justify-content-end">
+                        <div class="mt-3 d-flex justify-content-between gap-2">
+                            <button type="button" class="btn btn-outline-primary" data-add-uom>Add UoM</button>
                             <button type="submit" class="btn btn-primary">Save UoM Set</button>
                         </div>
                     </form>
@@ -101,3 +107,90 @@ use App\Core\Csrf;
         <?php endforeach; ?>
     </div>
 <?php endif; ?>
+
+<template id="uom-row-template">
+    <tr>
+        <td>
+            <input type="hidden" data-uom-id-input name="uom_key_placeholder[id]" value="">
+            <input class="form-control form-control-sm" type="text" name="uom_key_placeholder[name]" required>
+        </td>
+        <td>
+            <input class="form-control form-control-sm" type="text" name="uom_key_placeholder[symbol]" required>
+        </td>
+        <td>
+            <input class="form-control form-control-sm" type="number" step="0.000001" min="0.000001" name="uom_key_placeholder[factor_to_base]" required>
+        </td>
+        <td class="text-center">
+            <input class="form-check-input" type="radio" name="base_uom_id" value="" required>
+        </td>
+        <td class="text-end">
+            <button type="button" class="btn btn-sm btn-outline-danger" data-remove-uom>&times;</button>
+        </td>
+    </tr>
+</template>
+
+<script>
+document.querySelectorAll('form[action^="/admin/uoms/"]').forEach((form) => {
+    const rowsContainer = form.querySelector('[data-uom-rows]');
+    const addButton = form.querySelector('[data-add-uom]');
+    const template = document.getElementById('uom-row-template');
+    let newRowIndex = 1;
+
+    if (!rowsContainer || !addButton || !template) {
+        return;
+    }
+
+    const updateRemovableState = () => {
+        const rows = rowsContainer.querySelectorAll('tr');
+        rows.forEach((row) => {
+            const removeButton = row.querySelector('[data-remove-uom]');
+            if (removeButton) {
+                removeButton.disabled = rows.length <= 1;
+            }
+        });
+    };
+
+    const wireRow = (row) => {
+        const removeButton = row.querySelector('[data-remove-uom]');
+        const baseRadio = row.querySelector('input[type="radio"][name="base_uom_id"]');
+        const idInput = row.querySelector('input[data-uom-id-input]');
+
+        if (baseRadio && idInput && !baseRadio.value) {
+            baseRadio.value = idInput.value || row.dataset.uomKey || '';
+        }
+
+        if (removeButton) {
+            removeButton.addEventListener('click', () => {
+                const wasChecked = !!baseRadio?.checked;
+                row.remove();
+
+                if (wasChecked) {
+                    const firstRadio = rowsContainer.querySelector('input[type="radio"][name="base_uom_id"]');
+                    if (firstRadio) {
+                        firstRadio.checked = true;
+                    }
+                }
+
+                updateRemovableState();
+            });
+        }
+    };
+
+    rowsContainer.querySelectorAll('tr').forEach((row) => wireRow(row));
+
+    addButton.addEventListener('click', () => {
+        const fragment = template.content.cloneNode(true);
+        const row = fragment.querySelector('tr');
+        const rowKey = `new_${newRowIndex++}`;
+        row.dataset.uomKey = rowKey;
+        row.querySelectorAll('[name^="uom_key_placeholder"]').forEach((input) => {
+            input.name = input.name.replace('uom_key_placeholder', `uoms[${rowKey}]`);
+        });
+        wireRow(row);
+        rowsContainer.appendChild(row);
+        updateRemovableState();
+    });
+
+    updateRemovableState();
+});
+</script>
