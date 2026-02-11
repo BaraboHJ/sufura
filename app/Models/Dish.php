@@ -7,8 +7,6 @@ use PDOException;
 
 class Dish
 {
-    private static ?string $categoryColumn = null;
-
     public static function create(PDO $pdo, int $orgId, int $actorUserId, array $payload): array
     {
         $categoryColumn = self::categoryColumn($pdo);
@@ -92,29 +90,65 @@ class Dish
 
     public static function categoryColumn(PDO $pdo): string
     {
-        if (self::$categoryColumn !== null) {
-            return self::$categoryColumn;
+        foreach (['category_id', 'dish_category_id'] as $column) {
+            if (self::columnExists($pdo, $column) && self::supportsCategoryQuery($pdo, $column)) {
+                return $column;
+            }
         }
 
-        if (self::columnExists($pdo, 'category_id')) {
-            self::$categoryColumn = 'category_id';
-            return self::$categoryColumn;
+        foreach (['category_id', 'dish_category_id'] as $column) {
+            if (self::supportsCategoryQuery($pdo, $column)) {
+                return $column;
+            }
         }
 
-        if (self::columnExists($pdo, 'dish_category_id')) {
-            self::$categoryColumn = 'dish_category_id';
-            return self::$categoryColumn;
-        }
+        return 'category_id';
+    }
 
-        self::$categoryColumn = 'category_id';
-        return self::$categoryColumn;
+    private static function supportsCategoryQuery(PDO $pdo, string $column): bool
+    {
+        try {
+            $probe = $pdo->prepare(
+                "SELECT d.id
+                 FROM dishes d
+                 JOIN dish_categories c ON c.id = d.{$column} AND c.org_id = d.org_id
+                 WHERE d.org_id = :org_id
+                 LIMIT 0"
+            );
+
+            if (!$probe) {
+                return false;
+            }
+
+            if ($probe->execute(['org_id' => 0])) {
+                return true;
+            }
+
+            $errorInfo = $probe->errorInfo();
+            return (int) ($errorInfo[1] ?? 0) !== 1054;
+        } catch (PDOException $e) {
+            return false;
+        }
     }
 
     private static function columnExists(PDO $pdo, string $column): bool
     {
+        $schemaStmt = $pdo->prepare(
+            'SELECT 1
+             FROM information_schema.columns
+             WHERE table_schema = DATABASE()
+               AND table_name = :table_name
+               AND column_name = :column_name
+             LIMIT 1'
+        );
+
+        if ($schemaStmt && $schemaStmt->execute(['table_name' => 'dishes', 'column_name' => $column])) {
+            return (bool) $schemaStmt->fetchColumn();
+        }
+
         try {
-            $pdo->query("SELECT {$column} FROM dishes LIMIT 0");
-            return true;
+            $probe = $pdo->query("SELECT {$column} FROM dishes LIMIT 0");
+            return $probe !== false;
         } catch (PDOException $e) {
             return false;
         }
