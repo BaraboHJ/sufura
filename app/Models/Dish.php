@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use PDO;
+use PDOException;
 
 class Dish
 {
@@ -95,21 +96,28 @@ class Dish
             return self::$categoryColumn;
         }
 
-        $stmt = $pdo->query('SHOW COLUMNS FROM dishes');
-        $columns = $stmt ? $stmt->fetchAll(PDO::FETCH_COLUMN, 0) : [];
-
-        if (in_array('category_id', $columns, true)) {
+        if (self::columnExists($pdo, 'category_id')) {
             self::$categoryColumn = 'category_id';
             return self::$categoryColumn;
         }
 
-        if (in_array('dish_category_id', $columns, true)) {
+        if (self::columnExists($pdo, 'dish_category_id')) {
             self::$categoryColumn = 'dish_category_id';
             return self::$categoryColumn;
         }
 
         self::$categoryColumn = 'category_id';
         return self::$categoryColumn;
+    }
+
+    private static function columnExists(PDO $pdo, string $column): bool
+    {
+        try {
+            $pdo->query("SELECT {$column} FROM dishes LIMIT 0");
+            return true;
+        } catch (PDOException $e) {
+            return false;
+        }
     }
 
     public static function delete(PDO $pdo, int $orgId, int $actorUserId, int $id): void
