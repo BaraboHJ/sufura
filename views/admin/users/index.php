@@ -9,6 +9,15 @@ use App\Core\Csrf;
     <a class="btn btn-primary" href="/admin/users/new">Add User</a>
 </div>
 
+<div class="alert alert-info d-flex justify-content-between align-items-center">
+    <div>
+        <strong>System update:</strong> Fetch the latest code from GitHub and apply file updates on this server.
+    </div>
+    <form method="post" action="/admin/system/update" class="m-0" onsubmit="return confirm('This will download the latest release files and overwrite application code. Continue?')">
+        <?= Csrf::input() ?>
+        <button class="btn btn-sm btn-outline-info" type="submit">Update from GitHub</button>
+    </form>
+</div>
 
 <div class="alert alert-warning d-flex justify-content-between align-items-center">
     <div>
