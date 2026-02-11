@@ -29,7 +29,7 @@
 
 
 ## Admin Self-Update (PHP-only)
-- Go to **User Management** as an admin and click **Update from GitHub**.
+- Go to **Admin Portal** as an admin and click **Update from GitHub**.
 - The updater downloads `main.zip` from this repository, extracts it in `tmp/`, and copies files into the app.
 - To protect local server settings, these paths are excluded by default: `.env`, `config/config.php`, `uploads/`, and `tmp/`.
 - Configure source URL and extra exclusions in `config/config.php` using:
@@ -54,6 +54,18 @@ location / {
     try_files $uri /index.php?$query_string;
 }
 ```
+
+
+### Accepted UoMs for Cost Imports
+Cost import `purchase_uom` values must match one of the configured UoM symbols (case-insensitive). In the seeded demo data, the accepted symbols are:
+- `mg` (Milligram)
+- `g` (Gram)
+- `kg` (Kilogram)
+- `ml` (Milliliter)
+- `l` (Liter)
+- `pc` (Piece)
+
+If your organization adds custom UoMs, those symbols are also accepted as long as they belong to the ingredient’s UoM set.
 
 ## Bulk Cost Import (CSV)
 1. Go to **Cost Imports** → **New Import**.
